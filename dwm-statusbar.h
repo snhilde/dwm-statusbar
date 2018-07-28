@@ -64,12 +64,12 @@
 #define ERR(str, val) \
 	{ snprintf(str, sizeof(str) - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
 	str[sizeof(str) - 1] = '\0'; \
-	fprintf(stderr, "%s%s\n\n", asctime(tm_struct), val); \
+	fprintf(stderr, "%s\t%s\n\n", asctime(tm_struct), val); \
 	return -1; }
 
 #define INIT_ERR(val) \
-	{ fprintf(stderr, "%s%s\n", asctime(tm_struct), val); \
-	perror("Error"); \
+	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+	perror("\tError"); \
 	printf("\n"); \
 	return -1; }
 
