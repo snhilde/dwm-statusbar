@@ -353,33 +353,25 @@ get_weather(void)
 }
 
 static int
-parse_error_code(int code)
+parse_error_code(int code, char *ret_str)
 {
 	switch (code) {
 		case 20:
-			snprintf(backup_status_string, 32, "%c already done%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "already done"); break;
 		case 21:
-			snprintf(backup_status_string, 32, "%c tar error%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "tar error"); break;
 		case 22:
-			snprintf(backup_status_string, 32, "%c gpg error%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "gpg error"); break;
 		case 23:
-			snprintf(backup_status_string, 32, "%c no acc token%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "no acc token"); break;
 		case 24:
-			snprintf(backup_status_string, 32, "%c error get url%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "error get url"); break;
 		case 25:
-			snprintf(backup_status_string, 32, "%c token timeout%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "token timeout"); break;
 		case 26:
-			snprintf(backup_status_string, 32, "%c err verifying%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "err verifying"); break;
 		default:
-			snprintf(backup_status_string, 32, "%c err in backup%c ",
-					COLOR_ERROR, COLOR_NORMAL);
+			strcpy(ret_str, "err in backup");
 	}
 	
 	return 0;
@@ -397,7 +389,7 @@ get_backup_status(void)
 	backup_mtime = file_stat.st_mtime;
 	
 	FILE *fd;
-	char line[32];
+	char line[32], print[16], color = COLOR_ERROR;
 	int value;
 	time_t curr_time;
 	time_t t_diff;
@@ -418,22 +410,25 @@ get_backup_status(void)
 		sscanf(line, "%d", &value);
 				
 		if (value >= 20 && value <= 26)
-			parse_error_code(value);
+			parse_error_code(value, print);
 		else {
 			time(&curr_time);
 			t_diff = curr_time - value;
 			if (t_diff > 86400)
-				snprintf(backup_status_string, 32, "%c Backup Missed Today%c ",
-						COLOR_ERROR, COLOR_NORMAL);
-			else
-				snprintf(backup_status_string, 32, "%c Backup done%c ",
-						COLOR2, COLOR_NORMAL);
+				strcpy(print, "missed");
+			else {
+				strcpy(print, "done");
+				color = COLOR2;
+			}
 		}
 	} else {
 		line[strlen(line) - 1] = '\0';
-		snprintf(backup_status_string, 32, "%c %s%c ",
-				COLOR1, line, COLOR_NORMAL);
+		strcpy(print, line);
+		color = COLOR1;
 	}
+	
+	snprintf(backup_status_string, 32, "%c backup: %s%c ",
+			color, print, COLOR_NORMAL);
 		
 	return 0;
 }
