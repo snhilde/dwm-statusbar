@@ -1646,6 +1646,8 @@ get_consts(Display *dpy)
 		INIT_ERR("error getting max keyboard brightness")
 	if ((vol_range = get_vol_range()) < 0 )
 		INIT_ERR("error getting volume range")
+			
+	return 0;
 }
 
 static int
