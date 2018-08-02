@@ -21,6 +21,7 @@ Currently, it displays this system information:
 * TODO list updates
 * Weather (current and forecasted)
 * Backup logging
+* Robinhood portfolio value
 
 
 # Table of Contents #
@@ -157,6 +158,8 @@ Because computers differ, there are a few things that you must configure before 
 #define COLOR2				color4
 #define COLOR_WARNING			color5
 #define COLOR_ERROR			color6
+#define GREEN_TEXT				color6
+#define RED_TEXT				color8
 #define COLOR_HEADING			COLOR_ACTIVE
 
 const char color1 = '';
@@ -165,6 +168,8 @@ const char color3 = '';
 const char color4 = '';
 const char color5 = '';
 const char color6 = '';
+const char color7 = '';
+const char color8 = '';
 ```
 These colors correspond to the colors that you defined in your config.h for DWM. Make any changes you think are pretty.
 - - - -
@@ -172,11 +177,6 @@ These colors correspond to the colors that you defined in your config.h for DWM.
 #define TODO_MAX_LEN			100
 ```
 Maximum number of characters to display in the TODO string.
-- - - -
-```
-#define WIFI_MAX_LEN			24
-```
-Maximum number of characters to display in the WiFi SSID string.
 - - - -
 ```
 #define WIFI_INTERFACE			"wlp4s0"
@@ -214,6 +214,11 @@ The numerical city id as described in [Getting Started](#getting-started) (#3)
 #define KEY				"reallylongstringthatisreallylong"
 ```
 Your API key from OpenWeatherMap as described in [Getting Started](#getting-started) (#3)
+- - - -
+```
+#define RH_LOGIN					"username={username}&password={password}
+```
+Your username and password (erase the curly brackets) for Robinhood
 - - - -
 ```
 #define DWM_CONFIG_FILE			"/home/user/.dwm/config.h"

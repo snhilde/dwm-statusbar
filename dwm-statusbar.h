@@ -39,7 +39,6 @@
 #define RED_TEXT					color8
 #define COLOR_HEADING				COLOR_ACTIVE
 
-#define DWM_STAT					566
 #define TODO_MAX_LEN				100
 #define WIFI_INTERFACE				"wlp4s0"
 #define DISPLAY_KBD					true
