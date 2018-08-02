@@ -22,6 +22,7 @@ format_string(Display *dpy, Window root)
 	strcat(top_bar, log_status_string);
 	strcat(top_bar, weather_string);
 	strcat(top_bar, backup_status_string);
+	strcat(top_bar, portfolio_value_string);
 	strcat(top_bar, wifi_status_string);
 	strcat(top_bar, time_string);
 
@@ -292,9 +293,6 @@ get_weather(void)
 		return -2;
 	}
 	
-	if (key_status < 0)
-		return -1;
-	
 	CURL *curl;
 	struct json_struct weather_jstruct, forecast_jstruct;
 	char cap[3];
@@ -322,7 +320,7 @@ get_weather(void)
 		ERR(weather_string, "Error weather curl_easy_setops(). Please fix issue and restart.")
 	if (curl_easy_perform(curl) != CURLE_OK) {
 		if (weather_init == false) {
-			sprintf(weather_string, "%c Waiting for internet connection... %c ", COLOR2, COLOR_NORMAL);
+			sprintf(weather_string, "%c Waiting for internet connection...%c ", COLOR2, COLOR_NORMAL);
 			return -2;
 		} else
 			ERR(weather_string, "Error weather curl_easy_perform(). Please fix issue and restart.")
@@ -418,18 +416,99 @@ get_backup_status(void)
 				strcpy(print, "missed");
 			else {
 				strcpy(print, "done");
-				color = COLOR2;
+				color = COLOR1;
 			}
 		}
 	} else {
 		line[strlen(line) - 1] = '\0';
 		strcpy(print, line);
-		color = COLOR1;
+		color = COLOR2;
 	}
 	
-	snprintf(backup_status_string, 32, "%c backup: %s%c ",
-			color, print, COLOR_NORMAL);
+	snprintf(backup_status_string, 32, "%cbackup:%c %s%c ",
+			COLOR_HEADING, color, print, COLOR_NORMAL);
 		
+	return 0;
+}
+
+static double
+parse_portfolio_json(char *raw_json)
+{
+	cJSON *parsed_json = cJSON_Parse(raw_json);
+	cJSON *equity_obj, *extended_hours_equity_obj;
+	cJSON *equity_previous_close_obj;
+	double equity_f;
+	
+	equity_obj = cJSON_GetObjectItem(parsed_json, "equity");
+	if (!equity_obj)
+		return -1;
+	
+	extended_hours_equity_obj = cJSON_GetObjectItem(parsed_json, "extended_hours_equity");
+	if (!extended_hours_equity_obj)
+		return -1;
+	
+	if (extended_hours_equity_obj->valuestring == NULL)
+		equity_f = atof(equity_obj->valuestring);
+	else
+		equity_f = atof(extended_hours_equity_obj->valuestring);
+	
+	if (!equity_previous_close) {
+		equity_previous_close_obj = cJSON_GetObjectItem(parsed_json, "equity_previous_close");
+		if (!equity_previous_close_obj)
+			return -1;
+		equity_previous_close = atof(equity_previous_close_obj->valuestring);
+	}
+	
+	cJSON_Delete(parsed_json);
+	return equity_f;
+}
+	
+static int
+get_portfolio_value(void)
+{
+	if (!memset(portfolio_value_string, '\0', 32))
+		ERR(portfolio_value_string, "Error resetting portfolio_va...")
+			
+	if (wifi_connected == false) {
+		sprintf(portfolio_value_string, "%c Waiting for internet...%c ", COLOR2, COLOR_NORMAL);
+		return -2;
+	}
+	
+	if (portfolio_init == false)
+		return -2;
+	
+	CURL *curl;
+	struct json_struct portfolio_jstruct;
+	double equity;
+	
+	portfolio_jstruct.data = (char *)malloc(1);
+	if (portfolio_jstruct.data == NULL)
+		ERR(portfolio_value_string, "Out of memory");
+	portfolio_jstruct.size = 0;
+	
+	if (curl_global_init(CURL_GLOBAL_ALL))
+		ERR(portfolio_value_string, "Error curl_global_init()")
+	if (!(curl = curl_easy_init()))
+		ERR(portfolio_value_string, "Error curl_easy_init()")
+			
+	if (curl_easy_setopt(curl, CURLOPT_URL, portfolio_url) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
+		ERR(portfolio_value_string, "Error curl_easy_setops()")
+	if (curl_easy_perform(curl) != CURLE_OK)
+		ERR(portfolio_value_string, "Error curl_easy_perform()")
+			
+	if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
+		ERR(portfolio_value_string, "Error parsing portfolio json")
+	
+	sprintf(portfolio_value_string, "%crobinhood:%c%.2lf",
+			COLOR_HEADING, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
+	
+	free(portfolio_jstruct.data);
+	curl_easy_cleanup(curl);
+	curl_global_cleanup();
 	return 0;
 }
 
@@ -448,20 +527,14 @@ free_wifi_list(struct nlmsg_list *list)
 static int
 format_wifi_status(char color)
 {
-	if (!memmove(wifi_status_string + 2, wifi_status_string, strlen(wifi_status_string)))
-		ERR(wifi_status_string, "err: format_wifi_status")
-	// add padding and format color
-	wifi_status_string[0] = color;
-	wifi_status_string[1] = ' ';
-	wifi_status_string[strlen(wifi_status_string)] = ' ';
-	wifi_status_string[strlen(wifi_status_string)] = COLOR_NORMAL;
+	char tmp[32];
 	
-	if (strlen(wifi_status_string) > WIFI_MAX_LEN) {
-		memset(wifi_status_string + WIFI_MAX_LEN - 5, '.', 3);
-		wifi_status_string[WIFI_MAX_LEN - 2] = COLOR_NORMAL;
-		wifi_status_string[WIFI_MAX_LEN - 1] = ' ';
-		wifi_status_string[WIFI_MAX_LEN] = '\0';
-	}
+	if (strlen(wifi_status_string) > (sizeof wifi_status_string - 6))
+		memset(wifi_status_string + strlen(wifi_status_string) - 3, '.', 3);
+	
+	sprintf(tmp, " %cwifi:%c %s %c ",
+			COLOR_HEADING, color, wifi_status_string, COLOR_NORMAL);
+	strcpy(wifi_status_string, tmp);
 	
 	return 0;
 }
@@ -474,7 +547,7 @@ print_ssid(uint8_t len, uint8_t *data)
 	uint8_t tmp_str[2];
 
 	memset(wifi_status_string, '\0', 32);
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len && i < sizeof wifi_status_string; i++) {
 		if (isprint(data[i]) && data[i] != ' ' && data[i] != '\\')
 			sprintf(tmp_str, "%c", data[i]);
 		else if (data[i] == ' ' && (i != 0 && i != len -1))
@@ -584,16 +657,16 @@ get_wifi_status(void)
 	if (op_state == -1) return -1;
 	
 	if (ifi_flag == 0 && op_state == 2) {
-		strncpy(wifi_status_string, "Wireless Device Set Down", 32);
+		strncpy(wifi_status_string, "Wireless Device Set Down", 31);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 0) {
-		strncpy(wifi_status_string, "Wireless State Unknown", 32);
+		strncpy(wifi_status_string, "Wireless State Unknown", 31);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 2) {
-		strncpy(wifi_status_string, "No Connection Initiated", 32);
+		strncpy(wifi_status_string, "No Connection Initiated", 31);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 5) {
-		strncpy(wifi_status_string, "No Carrier", 32);
+		strncpy(wifi_status_string, "No Carrier", 31);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 6) {
 		if (wifi_connected == true) return 0;
@@ -623,7 +696,7 @@ get_wifi_status(void)
 		if (nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, NULL) < 0)
 			ERR(wifi_status_string, "err: nla_cb_set()")
 		if (nl_recvmsgs(socket, cb) < 0)
-			strncpy(wifi_status_string, "No Wireless Connection", 32);
+			strncpy(wifi_status_string, "No Wireless Connection", 31);
 		else
 			color = COLOR1;
 
@@ -1095,12 +1168,134 @@ get_battery(void)
 }
 
 static int
-make_key(void)
+parse_account_number_json(char *raw_json)
 {
-	snprintf(weather_url, 128, "http://api.openweathermap.org/data/2.5/weather?id=%s&appid=%s&units=imperial", LOCATION, KEY);
-	snprintf(forecast_url, 128, "http://api.openweathermap.org/data/2.5/forecast?id=%s&appid=%s&units=imperial", LOCATION, KEY);
+	cJSON *parsed_json = cJSON_Parse(raw_json);
+	cJSON *results, *account, *account_num;
+	cJSON *weather_dict;
+	int id;
 	
+	results = cJSON_GetObjectItem(parsed_json, "results");
+	if (!results)
+		return -1;
+	account = results->child;
+	if (!account)
+		return -1;
+	account_num = cJSON_GetObjectItem(account, "account_number");
+	if (!account_num)
+		return -1;
+	
+	strncpy(account_number, account_num->valuestring, 31);
+	
+	cJSON_Delete(parsed_json);
 	return 0;
+}
+	
+static int
+get_account_number(void)
+{
+	CURL *curl;
+	struct json_struct account_number_struct;
+	
+	account_number_struct.data = (char *)malloc(1);
+	if (account_number_struct.data == NULL)
+		INIT_ERR("error allocating account_number_struct.data")
+	account_number_struct.size = 0;
+	
+	if (curl_global_init(CURL_GLOBAL_ALL))
+		INIT_ERR("error curl_global_init() in get_account_number()")
+	if (!(curl = curl_easy_init()))
+		INIT_ERR("error curl_easy_init() in get_account_number()")
+	
+	headers = curl_slist_append(headers, "Accept: application/json");
+	headers = curl_slist_append(headers, token_header);
+	if (headers == NULL)
+		INIT_ERR("error curl_slist_append() in get_account_number()")
+			
+	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/accounts/") != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
+		INIT_ERR("error curl_easy_setopt() in get_account_number()")
+	if (curl_easy_perform(curl) != CURLE_OK)
+		INIT_ERR("error curl_easy_perform() in get_account_number()")
+		
+	if (parse_account_number_json(account_number_struct.data) < 0)
+		INIT_ERR("error parse_account_number_json() in get_account_number()")
+	
+	free(account_number_struct.data);
+	curl_easy_cleanup(curl);
+	curl_global_cleanup();
+	return 0;
+}
+
+static int
+parse_token_json(char *raw_json)
+{
+	cJSON *parsed_json = cJSON_Parse(raw_json);
+	cJSON *token = cJSON_GetObjectItem(parsed_json, "token");
+	if (!token)
+		INIT_ERR("error finding \"token\" in token json")
+	
+	snprintf(token_header, 64, "Authorization: Token %s", token->valuestring);
+	
+	cJSON_Delete(parsed_json);
+	return 0;
+}
+	
+static int
+get_token(void)
+{
+	CURL *curl;
+	struct json_struct token_struct;
+	struct curl_slist *header = NULL;
+	
+	token_struct.data = (char *)malloc(1);
+	if (token_struct.data == NULL)
+		INIT_ERR("error allocating token_struct.data")
+	token_struct.size = 0;
+	
+	if (curl_global_init(CURL_GLOBAL_ALL))
+		INIT_ERR("error curl_global_init() in get_token()")
+	if (!(curl = curl_easy_init()))
+		INIT_ERR("error curl_easy_init() in get_token()")
+	
+	header = curl_slist_append(header, "Accept: application/json");
+	if (header == NULL)
+		INIT_ERR("error curl_slist_append() in get_token()")
+			
+	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/api-token-auth/") != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, RH_LOGIN) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
+		INIT_ERR("error curl_easy_setopt() in get_token()")
+	if (curl_easy_perform(curl) != CURLE_OK)
+		INIT_ERR("error curl_easy_perform() in get_token()")
+		
+	if (parse_token_json(token_struct.data) < 0)
+		INIT_ERR("error parse_token_json() in get_token()")
+	
+	free(token_struct.data);
+	curl_slist_free_all(header);
+	curl_easy_cleanup(curl);
+	curl_global_cleanup();
+	return 0;
+}
+
+static int
+init_portfolio()
+{
+	int err = 0;
+	
+	err += get_token();
+	err += get_account_number();
+	snprintf(portfolio_url, 128, "https://api.robinhood.com/accounts/%s/portfolio/", account_number);
+	portfolio_init = true;
+	
+	return err;
 }
 
 static int
@@ -1126,15 +1321,19 @@ loop (Display *dpy, Window root)
 		get_time();
 		get_network_usage();
 		get_cpu_usage();
-		if (wifi_connected == true && weather_update == true)
+		if (weather_update == true)
 			if ((weather_return = get_weather()) < 0)
 				if (weather_return != -2)
 					break;
+		if (wifi_connected == true && portfolio_init == false)
+			init_portfolio();
 		
 		// run every five seconds
 		if (tm_struct->tm_sec % 5 == 0) {
 			get_TODO();
 			get_backup_status();
+			if (get_portfolio_value() == -1)
+				break;
 			if (get_wifi_status() < 0)
 				break;
 			get_memory();
@@ -1166,6 +1365,15 @@ loop (Display *dpy, Window root)
 	}
 	
 	return -1;
+}
+
+static int
+make_urls(void)
+{
+	snprintf(weather_url, 128, "http://api.openweathermap.org/data/2.5/weather?id=%s&appid=%s&units=imperial", LOCATION, KEY);
+	snprintf(forecast_url, 128, "http://api.openweathermap.org/data/2.5/forecast?id=%s&appid=%s&units=imperial", LOCATION, KEY);
+	
+	return 0;
 }
 
 static int
@@ -1653,14 +1861,14 @@ get_consts(Display *dpy)
 static int
 init(Display *dpy, Window root)
 {
-	int err = 0;
 	time_t curr_time;
 	
 	if ((temp_list = populate_temp_list(temp_list, "input")) == NULL)
 		INIT_ERR("error opening temperature directory")
-	err += populate_tm_struct();
-	err += get_consts(dpy);
-	err += key_status = make_key();
+	populate_tm_struct();
+	if (get_consts(dpy) < 0)
+		INIT_ERR("error intializing constants")
+	make_urls();
 	
 	get_TODO();
 	get_log_status();
@@ -1681,9 +1889,10 @@ init(Display *dpy, Window root)
 	get_battery();
 	
 	time(&curr_time);
-	err += format_string(dpy, root);
+	if (format_string(dpy, root) < 0)
+		INIT_ERR("error format_string() in init()")
 	
-	return err;
+	return 0;
 }
 
 int

@@ -35,11 +35,12 @@
 #define COLOR2						color4
 #define COLOR_WARNING				color5
 #define COLOR_ERROR					color6
+#define GREEN_TEXT					color7
+#define RED_TEXT					color8
 #define COLOR_HEADING				COLOR_ACTIVE
 
 #define DWM_STAT					566
 #define TODO_MAX_LEN				100
-#define WIFI_MAX_LEN				24
 #define WIFI_INTERFACE				"wlp4s0"
 #define DISPLAY_KBD					true
 
@@ -49,6 +50,7 @@
 #define BACKUP_STATUS_FILE			"/home/user/.backup/.sb"
 #define LOCATION					"0000000"
 #define KEY							"00000000000000000000000000000000"
+#define RH_LOGIN					"username={username}&password={password}
 
 #define DWM_CONFIG_FILE				"/home/user/.dwm/config.h"
 #define NET_RX_FILE					NET_CAT(WIFI_INTERFACE, rx)
@@ -119,6 +121,8 @@ const char color3 = '';
 const char color4 = '';
 const char color5 = '';
 const char color6 = '';
+const char color7 = '';
+const char color8 = '';
 
 long TODO_mtime = 0;
 char weather_url[128];
@@ -128,6 +132,12 @@ int temp_today;
 bool weather_init = false;
 bool weather_update = true;
 long backup_mtime = 0;
+bool portfolio_init = false;
+char portfolio_url[128];
+char token_header[64];
+char account_number[32];
+float equity_previous_close = 0.0;
+struct curl_slist *headers = NULL;
 bool wifi_connected = false;
 int devidx;
 struct tm *tm_struct = NULL;
@@ -139,7 +149,6 @@ int fan_max;
 int screen_brightness_max;
 int kbd_brightness_max;
 float vol_range;
-int key_status;
 
 char statusbar_string[1024];
 char top_bar[512];
@@ -150,6 +159,7 @@ char TODO_string[128];
 char log_status_string[32];
 char weather_string[96];
 char backup_status_string[32];
+char portfolio_value_string[32];
 char wifi_status_string[32];
 char time_string[32];
 
