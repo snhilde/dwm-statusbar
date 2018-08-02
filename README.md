@@ -158,7 +158,7 @@ Because computers differ, there are a few things that you must configure before 
 #define COLOR2				color4
 #define COLOR_WARNING			color5
 #define COLOR_ERROR			color6
-#define GREEN_TEXT			color6
+#define GREEN_TEXT			color7
 #define RED_TEXT				color8
 #define COLOR_HEADING			COLOR_ACTIVE
 
