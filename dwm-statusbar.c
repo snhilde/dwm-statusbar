@@ -294,58 +294,48 @@ get_weather(void)
 	}
 	
 	CURL *curl;
-	struct json_struct weather_jstruct, forecast_jstruct;
+	int i;
+	struct json_struct json_structs[2];
+	static const char *urls[2] = { weather_url, forecast_url };
 	char cap[3];
 	
 	day_safe = tm_struct->tm_wday;
-	
-	weather_jstruct.data = (char *)malloc(1);
-	if (weather_jstruct.data == NULL)
-		ERR(weather_string, "Out of memory");
-	weather_jstruct.size = 0;
-	forecast_jstruct.data = (char *)malloc(1);
-	if (forecast_jstruct.data == NULL)
-		ERR(weather_string, "Out of memory");
-	forecast_jstruct.size = 0;
 	
 	if (curl_global_init(CURL_GLOBAL_ALL))
 		ERR(weather_string, "Error curl_global_init(). Please fix issue and restart.")
 	if (!(curl = curl_easy_init()))
 		ERR(weather_string, "Error curl_easy_init(). Please fix issue and restart.")
 			
-	if (curl_easy_setopt(curl, CURLOPT_URL, weather_url) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &weather_jstruct) != CURLE_OK)
-		ERR(weather_string, "Error weather curl_easy_setops(). Please fix issue and restart.")
-	if (curl_easy_perform(curl) != CURLE_OK) {
-		if (weather_init == false) {
-			sprintf(weather_string, "%c Waiting for internet connection...%c ", COLOR2, COLOR_NORMAL);
-			return -2;
-		} else
-			ERR(weather_string, "Error weather curl_easy_perform(). Please fix issue and restart.")
+	for (i = 0; i < 2; i++) {
+		json_structs[i].data = (char *)malloc(1);
+		if (json_structs[i].data == NULL)
+			ERR(weather_string, "Out of memory");
+		json_structs[i].size = 0;
+		
+		if (curl_easy_setopt(curl, CURLOPT_URL, urls[i]) != CURLE_OK ||
+				curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &json_structs[i]) != CURLE_OK)
+			ERR(weather_string, "Error curl_easy_setops() in get_weather(). Please fix issue and restart.")
+		if (curl_easy_perform(curl) != CURLE_OK)
+				ERR(weather_string, "Error curl_easy_perform() in get_weather(). Please fix issue and restart.")
+					
+		if (!i) {
+			if (parse_weather_json(json_structs[i].data) < 0)
+				ERR(weather_string, "Error parsing weather json. Please fix issue and restart.")
+		} else {
+			if (parse_forecast_json(json_structs[i].data) < 0)
+				ERR(weather_string, "Error parsing forecast json. Please fix issue and restart.")
+		}
 	}
-	if (parse_weather_json(weather_jstruct.data) < 0)
-		ERR(weather_string, "Error parsing weather json. Please fix issue and restart.")
-	
-	if (curl_easy_setopt(curl, CURLOPT_URL, forecast_url) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &forecast_jstruct) != CURLE_OK)
-		ERR(weather_string, "Error forecast curl_easy_setops(). Please fix issue and restart.")
-	if (curl_easy_perform(curl) != CURLE_OK)
-		ERR(weather_string, "Error forecast curl_easy_perform(). Please fix issue and restart.")
-	if (parse_forecast_json(forecast_jstruct.data) < 0)
-		ERR(weather_string, "Error parsing forecast json. Please fix issue and restart.")
 	
 	sprintf(cap, "%c ", COLOR_NORMAL);
 	strcat(weather_string, cap);
 	
-	free(weather_jstruct.data);
-	free(forecast_jstruct.data);
+	free(json_structs[0].data);
+	free(json_structs[1].data);
 	curl_easy_cleanup(curl);
 	curl_global_cleanup();
-	weather_init = true;
 	weather_update = false;
 	return 0;
 }
