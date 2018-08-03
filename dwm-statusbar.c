@@ -466,20 +466,26 @@ parse_portfolio_json(char *raw_json)
 static int
 get_portfolio_value(void)
 {
-	if (!memset(portfolio_value_string, '\0', 32))
-		ERR(portfolio_value_string, "Error resetting portfolio_va...")
-			
+	// Robinhood stops after-market trading at 6:00 pm EST
+	if (timezone / 3600 + tm_struct->tm_hour > 23 && equity_found == true)
+		return 0;
+	
 	if (wifi_connected == false) {
-		sprintf(portfolio_value_string, "%c Waiting for internet...%c ", COLOR2, COLOR_NORMAL);
+		sprintf(portfolio_value_string, "%c Waiting for internet...%c ",
+				COLOR2, COLOR_NORMAL);
 		return -2;
 	}
 	
 	if (portfolio_init == false)
 		return -2;
 	
+	if (!memset(portfolio_value_string, '\0', 32))
+		ERR(portfolio_value_string, "Error resetting portfolio_va...")
+			
+	int tz_gap;
 	CURL *curl;
 	struct json_struct portfolio_jstruct;
-	double equity;
+	static double equity;
 	
 	portfolio_jstruct.data = (char *)malloc(1);
 	if (portfolio_jstruct.data == NULL)
@@ -509,6 +515,7 @@ get_portfolio_value(void)
 	free(portfolio_jstruct.data);
 	curl_easy_cleanup(curl);
 	curl_global_cleanup();
+	equity_found = true;
 	return 0;
 }
 
@@ -1288,14 +1295,14 @@ get_token(void)
 static int
 init_portfolio()
 {
-	int err = 0;
-	
-	err += get_token();
-	err += get_account_number();
+	if (get_token() < 0)
+		return -1;
+	if (get_account_number() < 0)
+		return -1;
 	snprintf(portfolio_url, 128, "https://api.robinhood.com/accounts/%s/portfolio/", account_number);
 	portfolio_init = true;
 	
-	return err;
+	return 0;
 }
 
 static int
