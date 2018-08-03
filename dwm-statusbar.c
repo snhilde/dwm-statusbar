@@ -289,7 +289,8 @@ get_weather(void)
 		ERR(weather_string, "Error resetting weather_string")
 			
 	if (wifi_connected == false) {
-		sprintf(weather_string, "%c Waiting for internet connection...%c ", COLOR2, COLOR_NORMAL);
+		// sprintf(weather_string, "%c Waiting for internet connection...%c ", COLOR2, COLOR_NORMAL);
+		sprintf(weather_string, "%c weather:%cN/A ", COLOR_HEADING, COLOR_NORMAL);
 		return -2;
 	}
 	
@@ -456,13 +457,16 @@ parse_portfolio_json(char *raw_json)
 static int
 get_portfolio_value(void)
 {
+	// Robinhood starts trading at 9:00 am EST
+	if (timezone / 3600 + tm_struct->tm_hour < 14 && equity_found == true)
+		return 0;
 	// Robinhood stops after-market trading at 6:00 pm EST
 	if (timezone / 3600 + tm_struct->tm_hour > 23 && equity_found == true)
 		return 0;
 	
 	if (wifi_connected == false) {
-		sprintf(portfolio_value_string, "%c Waiting for internet...%c ",
-				COLOR2, COLOR_NORMAL);
+		sprintf(portfolio_value_string, "%crobinhood:%cN/A",
+				COLOR_HEADING, COLOR_NORMAL);
 		return -2;
 	}
 	
