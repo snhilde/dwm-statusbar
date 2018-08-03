@@ -128,9 +128,9 @@ char weather_url[128];
 char forecast_url[128];
 int day_safe;				// due to cJSON's not being thread-safe
 int temp_today;
-bool weather_init = false;
 bool weather_update = true;
 long backup_mtime = 0;
+bool equity_found = false;
 bool portfolio_init = false;
 char portfolio_url[128];
 char token_header[64];
