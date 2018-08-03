@@ -256,7 +256,8 @@ parse_weather_json(char *raw_json)
 		ERR(weather_string, "Error getting id from weather")
 	
 	snprintf(weather_string, 96, " %c weather:%c%2d F",
-			id < 800 ? COLOR_WARNING : COLOR_HEADING, id < 800 ? COLOR_WARNING : COLOR_NORMAL,
+			id < 800 ? COLOR_WARNING : COLOR_HEADING,
+			id < 800 ? COLOR_WARNING : COLOR_NORMAL,
 			temp_today);
 	
 	cJSON_Delete(parsed_json);
@@ -289,7 +290,6 @@ get_weather(void)
 		ERR(weather_string, "Error resetting weather_string")
 			
 	if (wifi_connected == false) {
-		// sprintf(weather_string, "%c Waiting for internet connection...%c ", COLOR2, COLOR_NORMAL);
 		sprintf(weather_string, "%c weather:%cN/A ", COLOR_HEADING, COLOR_NORMAL);
 		return -2;
 	}
@@ -318,26 +318,26 @@ get_weather(void)
 				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &json_structs[i]) != CURLE_OK)
 			ERR(weather_string, "Error curl_easy_setops() in get_weather(). Please fix issue and restart.")
-		if (curl_easy_perform(curl) != CURLE_OK)
-				ERR(weather_string, "Error curl_easy_perform() in get_weather(). Please fix issue and restart.")
-					
-		if (!i) {
-			if (parse_weather_json(json_structs[i].data) < 0)
-				ERR(weather_string, "Error parsing weather json. Please fix issue and restart.")
-		} else {
-			if (parse_forecast_json(json_structs[i].data) < 0)
-				ERR(weather_string, "Error parsing forecast json. Please fix issue and restart.")
-		}
+		if (curl_easy_perform(curl) == CURLE_OK) {
+			if (!i) {
+				if (parse_weather_json(json_structs[i].data) < 0)
+					ERR(weather_string, "Error parsing weather json. Please fix issue and restart.")
+			} else {
+				if (parse_forecast_json(json_structs[i].data) < 0)
+					ERR(weather_string, "Error parsing forecast json. Please fix issue and restart.")
+			}
+			sprintf(cap, "%c ", COLOR_NORMAL);
+			strcat(weather_string, cap);
+			weather_update = false;
+		} else
+			sprintf(weather_string, "%c weather:%cN/A ",
+					COLOR_HEADING, COLOR_NORMAL);
 	}
-	
-	sprintf(cap, "%c ", COLOR_NORMAL);
-	strcat(weather_string, cap);
 	
 	free(json_structs[0].data);
 	free(json_structs[1].data);
 	curl_easy_cleanup(curl);
 	curl_global_cleanup();
-	weather_update = false;
 	return 0;
 }
 
@@ -497,19 +497,20 @@ get_portfolio_value(void)
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
 		ERR(portfolio_value_string, "Error curl_easy_setops()")
-	if (curl_easy_perform(curl) != CURLE_OK)
-		ERR(portfolio_value_string, "Error curl_easy_perform()")
+	if (curl_easy_perform(curl) == CURLE_OK) {
+		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
+			ERR(portfolio_value_string, "Error parsing portfolio json")
+		
+		sprintf(portfolio_value_string, "%crobinhood:%c%.2lf",
+				COLOR_HEADING, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
+		equity_found = true;
+	} else
+		sprintf(portfolio_value_string, "%crobinhood:%cN/A",
+				COLOR_HEADING, COLOR_NORMAL);
 			
-	if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
-		ERR(portfolio_value_string, "Error parsing portfolio json")
-	
-	sprintf(portfolio_value_string, "%crobinhood:%c%.2lf",
-			COLOR_HEADING, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
-	
 	free(portfolio_jstruct.data);
 	curl_easy_cleanup(curl);
 	curl_global_cleanup();
-	equity_found = true;
 	return 0;
 }
 
@@ -1322,11 +1323,11 @@ loop (Display *dpy, Window root)
 		get_time();
 		get_network_usage();
 		get_cpu_usage();
-		if (weather_update == true)
+		if (weather_update == true && wifi_connected == true)
 			if ((weather_return = get_weather()) < 0)
 				if (weather_return != -2)
 					break;
-		if (wifi_connected == true && portfolio_init == false)
+		if (portfolio_init == false && wifi_connected == true)
 			init_portfolio();
 		
 		// run every five seconds
@@ -1873,7 +1874,9 @@ init(Display *dpy, Window root)
 	
 	get_TODO();
 	get_log_status();
+	get_weather();
 	get_backup_status();
+	get_portfolio_value();
 	get_wifi_status();
 	get_time();
 	
