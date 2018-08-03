@@ -36,6 +36,7 @@ Currently, it displays this system information:
 * [Macros](#macros)
 * [Testing](#testing)
 	* [Valgrind](#valgrind)
+* [Future Additions](#future-additions)
 * [Contributing](#contributing)
 * [Author](#author)
 * [License](#license)
@@ -271,6 +272,10 @@ I have been unable to figure out how to fix this leak so far. Because `XCreateFo
 ## Contributing ##
 
 Send a pull request or a message. Additional functionality is welcome, as are suggestions to make the program leaner, faster, and better performing. #LebronThisCode
+
+## Future Additions ##
+
+* Currently, the program only handles WiFi connectivity. Let's add other connections as well.
 
 
 ## Author ##
