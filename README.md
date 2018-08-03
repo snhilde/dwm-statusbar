@@ -276,6 +276,7 @@ Send a pull request or a message. Additional functionality is welcome, as are su
 ## Future Additions ##
 
 * Currently, the program only handles WiFi connectivity. Let's add other connections as well.
+* Fork certain functions (like `get_weather()`) into a separate thread.
 
 
 ## Author ##
