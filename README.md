@@ -254,7 +254,7 @@ Testing individual functions is very easy, especially in dwm.
 To limit the program to one or more specific functions, just comment out the function call in **BOTH** `init()` and `loop()`. You must do both, or you will be very confused. Please share the results of your tests with the community to better the project.
 
 #### Valgrind ####
-This is the reference command for running valgrind:
+This is the reference command for running the *memcheck* program in valgrind:
 ```
 valgrind -v --leak-check=yes --undef-value-errors=no --log-file=valgrind.log ./dwm-statusbar
 ```
