@@ -910,8 +910,8 @@ get_cpu_usage(void)
 	int i;
 	
 	static struct {
-		int oldval[4];
-		int newval[4];
+		int oldval[7];
+		int newval[7];
 	} cpu;
 
 	fd = fopen(CPU_USAGE_FILE, "r");
@@ -921,11 +921,12 @@ get_cpu_usage(void)
 	if (fclose(fd))
 		ERR(cpu_usage_string, "Close Error")
 	
-	sscanf(buf, "cpu %d %d %d %d", &cpu.newval[0], &cpu.newval[1], &cpu.newval[2], &cpu.newval[3]);
+	sscanf(buf, "cpu %d %d %d %d", &cpu.newval[0], &cpu.newval[1], &cpu.newval[2], &cpu.newval[3],
+			&cpu.newval[4], &cpu.newval[5], &cpu.newval[6]);
 
 	// exclude first run
 	if (cpu.oldval[0]) {
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < 7; i++) {
 			secc += cpu.newval[i];
 			secd += cpu.oldval[i];
 			
@@ -941,7 +942,7 @@ get_cpu_usage(void)
 		total *= cpu_ratio;
 	}
 	
-	for (i = 0; i < 4; i++)
+	for (i = 0; i < 7; i++)
 		cpu.oldval[i] = cpu.newval[i];
 	
 	if (total >= 100) total = 99;
