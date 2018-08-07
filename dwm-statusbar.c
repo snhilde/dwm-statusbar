@@ -1905,5 +1905,5 @@ main(void)
 	XStoreName(dpy, root, statusbar_string);
 	XFlush(dpy);
 	
-	return -1;
+	return 1;
 }
