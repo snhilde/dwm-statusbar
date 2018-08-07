@@ -960,7 +960,7 @@ get_cpu_temp(void)
 	if (!memset(cpu_temp_string, '\0', 32))
 		ERR(cpu_temp_string, "Error resetting cpu_temp_string")
 	
-	struct cpu_temp_list *snake;
+	struct cpu_temp_link *snake;
 	int counter;
 	int temp = 0;
 	int tempperc;
@@ -1202,30 +1202,30 @@ get_account_number(void)
 	
 	account_number_struct.data = (char *)malloc(1);
 	if (account_number_struct.data == NULL)
-		INIT_ERR("error allocating account_number_struct.data")
+		INIT_ERR("error allocating account_number_struct.data", -1)
 	account_number_struct.size = 0;
 	
 	if (curl_global_init(CURL_GLOBAL_ALL))
-		INIT_ERR("error curl_global_init() in get_account_number()")
+		INIT_ERR("error curl_global_init() in get_account_number()", -1)
 	if (!(curl = curl_easy_init()))
-		INIT_ERR("error curl_easy_init() in get_account_number()")
+		INIT_ERR("error curl_easy_init() in get_account_number()", -1)
 	
 	headers = curl_slist_append(headers, "Accept: application/json");
 	headers = curl_slist_append(headers, token_header);
 	if (headers == NULL)
-		INIT_ERR("error curl_slist_append() in get_account_number()")
+		INIT_ERR("error curl_slist_append() in get_account_number()", -1)
 			
 	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/accounts/") != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
-		INIT_ERR("error curl_easy_setopt() in get_account_number()")
+		INIT_ERR("error curl_easy_setopt() in get_account_number()", -1)
 	if (curl_easy_perform(curl) != CURLE_OK)
-		INIT_ERR("error curl_easy_perform() in get_account_number()")
+		INIT_ERR("error curl_easy_perform() in get_account_number()", -1)
 		
 	if (parse_account_number_json(account_number_struct.data) < 0)
-		INIT_ERR("error parse_account_number_json() in get_account_number()")
+		INIT_ERR("error parse_account_number_json() in get_account_number()", -1)
 	
 	free(account_number_struct.data);
 	curl_easy_cleanup(curl);
@@ -1239,7 +1239,7 @@ parse_token_json(char *raw_json)
 	cJSON *parsed_json = cJSON_Parse(raw_json);
 	cJSON *token = cJSON_GetObjectItem(parsed_json, "token");
 	if (!token)
-		INIT_ERR("error finding \"token\" in token json")
+		INIT_ERR("error finding \"token\" in token json", -1)
 	
 	snprintf(token_header, 64, "Authorization: Token %s", token->valuestring);
 	
@@ -1256,17 +1256,17 @@ get_token(void)
 	
 	token_struct.data = (char *)malloc(1);
 	if (token_struct.data == NULL)
-		INIT_ERR("error allocating token_struct.data")
+		INIT_ERR("error allocating token_struct.data", -1)
 	token_struct.size = 0;
 	
 	if (curl_global_init(CURL_GLOBAL_ALL))
-		INIT_ERR("error curl_global_init() in get_token()")
+		INIT_ERR("error curl_global_init() in get_token()", -1)
 	if (!(curl = curl_easy_init()))
-		INIT_ERR("error curl_easy_init() in get_token()")
+		INIT_ERR("error curl_easy_init() in get_token()", -1)
 	
 	header = curl_slist_append(header, "Accept: application/json");
 	if (header == NULL)
-		INIT_ERR("error curl_slist_append() in get_token()")
+		INIT_ERR("error curl_slist_append() in get_token()", -1)
 			
 	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/api-token-auth/") != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header) != CURLE_OK ||
@@ -1274,12 +1274,12 @@ get_token(void)
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
-		INIT_ERR("error curl_easy_setopt() in get_token()")
+		INIT_ERR("error curl_easy_setopt() in get_token()", -1)
 	if (curl_easy_perform(curl) != CURLE_OK)
-		INIT_ERR("error curl_easy_perform() in get_token()")
+		INIT_ERR("error curl_easy_perform() in get_token()", -1)
 		
 	if (parse_token_json(token_struct.data) < 0)
-		INIT_ERR("error parse_token_json() in get_token()")
+		INIT_ERR("error parse_token_json() in get_token()", -1)
 	
 	free(token_struct.data);
 	curl_slist_free_all(header);
@@ -1432,7 +1432,7 @@ get_kbd_brightness_max(void)
 	strcpy(dir_str, dirname(file_str));
 	
 	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening keyboard brightness directory")
+		INIT_ERR("error opening keyboard brightness directory", -1)
 			
 	while ((file = readdir(dir)) != NULL)
 		if (!strcmp(file->d_name, "max_brightness")) {
@@ -1444,17 +1444,17 @@ get_kbd_brightness_max(void)
 			break;
 		}
 	if (!count)
-		INIT_ERR("error finding keyboard brightness directory")
+		INIT_ERR("error finding keyboard brightness directory", -1)
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		INIT_ERR("error opening keyboard brightness file")
+		INIT_ERR("error opening keyboard brightness file", -1)
 	fscanf(fd, "%d", &max);
 	
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing keyboard brightness file")
+		INIT_ERR("error closing keyboard brightness file", -1)
 	if (closedir(dir) < 0)
-		INIT_ERR("error closing keyboard brightness directory")
+		INIT_ERR("error closing keyboard brightness directory", -1)
 	return max;
 }
 
@@ -1473,7 +1473,7 @@ get_screen_brightness_max(void)
 	strcpy(dir_str, dirname(file_str));
 	
 	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening screen brightness directory")
+		INIT_ERR("error opening screen brightness directory", -1)
 			
 	while ((file = readdir(dir)) != NULL)
 		if (!strcmp(file->d_name, "max_brightness")) {
@@ -1485,17 +1485,17 @@ get_screen_brightness_max(void)
 			break;
 		}
 	if (!count)
-		INIT_ERR("error finding screen brightness directory")
+		INIT_ERR("error finding screen brightness directory", -1)
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		INIT_ERR("error opening screen brightness file")
+		INIT_ERR("error opening screen brightness file", -1)
 	fscanf(fd, "%d", &max);
 	
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing screen brightness file")
+		INIT_ERR("error closing screen brightness file", -1)
 	if (closedir(dir) < 0)
-		INIT_ERR("error closing screen brightness directory")
+		INIT_ERR("error closing screen brightness directory", -1)
 	return max;
 }
 
@@ -1516,7 +1516,7 @@ get_fan_max(void)
 	strcpy(dir_str, dirname(file_str));
 	
 	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening fan directory")
+		INIT_ERR("error opening fan directory", -1)
 			
 	while ((file = readdir(dir)) != NULL) {
 		strcpy(tmp, file->d_name);
@@ -1532,18 +1532,18 @@ get_fan_max(void)
 				}
 	}
 	if (!count)
-		INIT_ERR("error finding fan max file")
+		INIT_ERR("error finding fan max file", -1)
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		INIT_ERR("error opening file in get_fan_max")
+		INIT_ERR("error opening file in get_fan_max", -1)
 	fscanf(fd, "%d", &max);
 	max -= fan_min;
 	
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_fan_max")
+		INIT_ERR("error closing file in get_fan_max", -1)
 	if (closedir(dir) < 0)
-		INIT_ERR("error closing directory in get_fan_max")
+		INIT_ERR("error closing directory in get_fan_max", -1)
 	return max;
 }
 
@@ -1564,7 +1564,7 @@ get_fan_min(void)
 	strcpy(dir_str, dirname(file_str));
 	
 	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening fan directory")
+		INIT_ERR("error opening fan directory", -1)
 			
 	while ((file = readdir(dir)) != NULL) {
 		strcpy(tmp, file->d_name);
@@ -1580,24 +1580,24 @@ get_fan_min(void)
 				}
 	}
 	if (!count)
-		INIT_ERR("error finding fan min file")
+		INIT_ERR("error finding fan min file", -1)
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		INIT_ERR("error opening file in get_fan_min")
+		INIT_ERR("error opening file in get_fan_min", -1)
 	fscanf(fd, "%d", &min);
 	
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_fan_min")
+		INIT_ERR("error closing file in get_fan_min", -1)
 	if (closedir(dir) < 0)
-		INIT_ERR("error closing directory in get_fan_min")
+		INIT_ERR("error closing directory in get_fan_min", -1)
 	return min;
 }
 
 static int
-free_list(struct cpu_temp_list *list)
+free_list(struct cpu_temp_link *list)
 {
-	struct cpu_temp_list *next;
+	struct cpu_temp_link *next;
 	
 	while (list != NULL) {
 		next = list->next;
@@ -1607,28 +1607,18 @@ free_list(struct cpu_temp_list *list)
 	}
 }
 
-static struct cpu_temp_list *
-add_link(struct cpu_temp_list *list, char *filename)
+static struct cpu_temp_link *
+add_link(struct cpu_temp_link *list, char *filename)
 {
-	struct cpu_temp_list *new;
-	struct cpu_temp_list *worm;
+	struct cpu_temp_link *new;
+	struct cpu_temp_link *worm;
 	
-	new = (struct cpu_temp_list *)malloc(sizeof(struct cpu_temp_list));
-	if (new == NULL) {
-		fprintf(stderr, "%serror allocating memory for cpu temperature file list\n",
-				asctime(tm_struct));
-		perror("Error");
-		printf("\n");
-		return NULL;
-	}
+	new = (struct cpu_temp_link *)malloc(sizeof(struct cpu_temp_link));
+	if (new == NULL)
+		INIT_ERR("error allocating memory for cpu temperature file list", NULL)
 	new->filename = (char *)malloc(strlen(filename) + 1);
-	if (new->filename == NULL) {
-		fprintf(stderr, "%serror allocating memory for cpu temperature file list name\n",
-				asctime(tm_struct));
-		perror("Error");
-		printf("\n");
-		return NULL;
-	}
+	if (new->filename == NULL)
+		INIT_ERR("error allocating memory for cpu temperature file list name", NULL)
 	
 	strcpy(new->filename, filename);
 	new->next = NULL;
@@ -1636,15 +1626,15 @@ add_link(struct cpu_temp_list *list, char *filename)
 	if (list == NULL)
 		return new;
 	else {
-		for (worm = list; worm->next != NULL; worm = worm->next);
-		worm->next = new;
+		new->next = list;
+		list = new;
 	}
 	
 	return list;
 }
 
-static struct cpu_temp_list *
-populate_temp_list(struct cpu_temp_list *list, char *match)
+static struct cpu_temp_link *
+populate_temp_list(struct cpu_temp_link *list, char *match)
 {
 	DIR *dir;
 	struct dirent *file;
@@ -1661,38 +1651,23 @@ populate_temp_list(struct cpu_temp_list *list, char *match)
 			if ((token = strtok(NULL, "_")))
 				if (!strcmp(token, match)) {
 					list = add_link(list, file->d_name);
-					if (list == NULL) {
-						fprintf(stderr, "%serror adding link to cpu temperature file list\n",
-								asctime(tm_struct));
-						perror("Error");
-						printf("\n");
-						return NULL;
-					}
+					if (list == NULL)
+						INIT_ERR("error adding link to cpu temperature file list", NULL)
 					count++;
 				}
 	}
-	if (!count) {
-		fprintf(stderr, "%serror finding files for cpu temp list\n",
-				asctime(tm_struct));
-		perror("Error");
-		printf("\n");
-		return NULL;
-	}
+	if (!count)
+		INIT_ERR("error finding files for cpu temp list", NULL)
 	
-	if (closedir(dir) < 0) {
-		fprintf(stderr, "%serror closing directory in populate_temp_list\n",
-				asctime(tm_struct));
-		perror("Error");
-		printf("\n");
-		return NULL;
-	}
+	if (closedir(dir) < 0)
+		INIT_ERR("error closing directory in populate_temp_list", NULL)
 	return list;
 }
 
 static int
 get_temp_max(void)
 {
-	struct cpu_temp_list *max_list = NULL, *snake;
+	struct cpu_temp_link *max_list = NULL, *snake;
 	FILE *fd;
 	int max;
 	int total = 0;
@@ -1700,7 +1675,7 @@ get_temp_max(void)
 	
 	max_list = populate_temp_list(max_list, "max");
 	if (max_list == NULL)
-			INIT_ERR("error populating temperature file list in get_temp_max")
+			INIT_ERR("error populating temperature file list in get_temp_max", -1)
 	
 	for (snake = max_list, counter = 0; snake != NULL; snake = snake->next, counter++) {
 		char path[128];
@@ -1708,11 +1683,11 @@ get_temp_max(void)
 		strcat(path, snake->filename);
 		
 		if (!(fd = fopen(path, "r")))
-			INIT_ERR("error opening file in get_temp_max")
+			INIT_ERR("error opening file in get_temp_max", -1)
 		if (!fscanf(fd, "%d", &max))
-			INIT_ERR("error reading value in get_temp_max")
+			INIT_ERR("error reading value in get_temp_max", -1)
 		if (fclose(fd) < 0)
-			INIT_ERR("error closing file in get_temp_max")
+			INIT_ERR("error closing file in get_temp_max", -1)
 		total += max;
 	}
 	
@@ -1731,21 +1706,21 @@ get_cpu_ratio(void)
 	
 	fd = fopen("/proc/cpuinfo", "r");
 	if (!fd)
-		INIT_ERR("error opening file in get_cpu_ratio")
+		INIT_ERR("error opening file in get_cpu_ratio", -1)
 	while (fgets(line, 256, fd) != NULL && strncmp(line, "cpu cores", 9));
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_cpu_ratio")
+		INIT_ERR("error closing file in get_cpu_ratio", -1)
 			
 	token = strtok(line, ":");
 	if (token == NULL)
-		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio")
+		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio", -1)
 	token = strtok(NULL, ":");
 	if (token == NULL)
-		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio")
+		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio", -1)
 	
 	cores = atoi(token);
 	if ((threads = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
-		INIT_ERR("error getting threads in get_cpu_ratio")
+		INIT_ERR("error getting threads in get_cpu_ratio", -1)
 	
 	return threads / cores;
 }
@@ -1758,25 +1733,25 @@ get_font(char *font)
 	char *token;
 	
 	if (!(fd = fopen(DWM_CONFIG_FILE, "r")))
-		INIT_ERR("error opening file in get_font")
+		INIT_ERR("error opening file in get_font", -1)
 	while (fgets(line, 128, fd) != NULL && strncmp(line, "static const char font[]", 24));
 	if (line == NULL)
-		INIT_ERR("no font found in config file")
+		INIT_ERR("no font found in config file", -1)
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_font")
+		INIT_ERR("error closing file in get_font", -1)
 			
 	token = strtok(line, "=");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font")
+		INIT_ERR("error parsing dwm config to get font", -1)
 	token = strtok(NULL, "=");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font")
+		INIT_ERR("error parsing dwm config to get font", -1)
 			
 	while (*token != '"') token++;
 	token++;
 	token = strtok(token, "\"");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font")
+		INIT_ERR("error parsing dwm config to get font", -1)
 			
 	memcpy(font, token, strlen(token));
 	
@@ -1797,7 +1772,7 @@ get_bar_max_len(Display *dpy)
 	width_p = DisplayWidth(dpy, DefaultScreen(dpy));
 	fontname = (char *)malloc(256);
 	if (fontname == NULL)
-		INIT_ERR("error allocating memory for fontname")
+		INIT_ERR("error allocating memory for fontname", -1)
 	if (get_font(fontname) < 0)
 		return -1;
 	fontset = XCreateFontSet(dpy, fontname, &miss_list, &count, &def);
@@ -1807,7 +1782,7 @@ get_bar_max_len(Display *dpy)
 	} else {
 		if (!(xfont = XLoadQueryFont(dpy, fontname))
 				&& !(xfont = XLoadQueryFont(dpy, "fixed")))
-			INIT_ERR("error loading font for bar\n")
+			INIT_ERR("error loading font for bar\n", -1)
 		width_c = XTextWidth(xfont, "0", 1);
 		XFreeFont(dpy, xfont);
 	}
@@ -1820,7 +1795,7 @@ static int
 get_block_size(void)
 {
 	if (statvfs("/", &root_fs.fs_stat) < 0)
-		INIT_ERR("error getting root file stats")
+		INIT_ERR("error getting root file stats", -1)
 			
 	return root_fs.fs_stat.f_bsize;
 }
@@ -1830,7 +1805,7 @@ get_dev_id(void)
 {
 	int index = if_nametoindex(WIFI_INTERFACE);
 	if (!index)
-		INIT_ERR("error finding index value for wireless interface")
+		INIT_ERR("error finding index value for wireless interface", -1)
 	return index;
 }
 
@@ -1838,25 +1813,25 @@ static int
 get_consts(Display *dpy)
 {
 	if ((devidx = get_dev_id()) == 0 )
-		INIT_ERR("error getting device id")
+		INIT_ERR("error getting device id", -1)
 	if ((block_size = get_block_size()) < 0 )
-		INIT_ERR("error getting block size")
+		INIT_ERR("error getting block size", -1)
 	if ((bar_max_len = get_bar_max_len(dpy)) < 0 )
-		INIT_ERR("error calculating max bar length")
+		INIT_ERR("error calculating max bar length", -1)
 	if ((cpu_ratio = get_cpu_ratio()) < 0 )
-		INIT_ERR("error calculating cpu ratio")
+		INIT_ERR("error calculating cpu ratio", -1)
 	if ((temp_max = get_temp_max()) < 0 )
-		INIT_ERR("error getting max temp")
+		INIT_ERR("error getting max temp", -1)
 	if ((fan_min = get_fan_min()) < 0 )
-		INIT_ERR("error getting min fan speed")
+		INIT_ERR("error getting min fan speed", -1)
 	if ((fan_max = get_fan_max()) < 0 )
-		INIT_ERR("error getting max fan speed")
+		INIT_ERR("error getting max fan speed", -1)
 	if ((screen_brightness_max = get_screen_brightness_max()) < 0 )
-		INIT_ERR("error getting max screen brightness")
+		INIT_ERR("error getting max screen brightness", -1)
 	if ((kbd_brightness_max = get_kbd_brightness_max()) < 0 )
-		INIT_ERR("error getting max keyboard brightness")
+		INIT_ERR("error getting max keyboard brightness", -1)
 	if ((vol_range = get_vol_range()) < 0 )
-		INIT_ERR("error getting volume range")
+		INIT_ERR("error getting volume range", -1)
 			
 	return 0;
 }
@@ -1867,10 +1842,10 @@ init(Display *dpy, Window root)
 	time_t curr_time;
 	
 	if ((temp_list = populate_temp_list(temp_list, "input")) == NULL)
-		INIT_ERR("error opening temperature directory")
+		INIT_ERR("error opening temperature directory", -1)
 	populate_tm_struct();
 	if (get_consts(dpy) < 0)
-		INIT_ERR("error intializing constants")
+		INIT_ERR("error intializing constants", -1)
 	make_urls();
 	
 	get_TODO();
@@ -1895,7 +1870,7 @@ init(Display *dpy, Window root)
 	
 	time(&curr_time);
 	if (format_string(dpy, root) < 0)
-		INIT_ERR("error format_string() in init()")
+		INIT_ERR("error format_string() in init()", -1)
 	
 	return 0;
 }

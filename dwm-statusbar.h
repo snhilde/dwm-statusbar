@@ -68,11 +68,11 @@
 	fprintf(stderr, "%s\t%s\n\n", asctime(tm_struct), val); \
 	return -1; }
 
-#define INIT_ERR(val) \
+#define INIT_ERR(val, ret) \
 	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); \
 	printf("\n"); \
-	return -1; }
+	return ret; }
 
 #define SND_ERR(val) \
 	{ snd_mixer_close(handle); \
@@ -109,9 +109,9 @@ struct disk_usage_struct {
 } root_fs;
 
 
-struct cpu_temp_list {
+struct cpu_temp_link {
 	char *filename;
-	struct cpu_temp_list *next;
+	struct cpu_temp_link *next;
 } *temp_list = NULL;
 
 const char color1 = '';
