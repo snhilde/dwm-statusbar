@@ -175,11 +175,6 @@ const char color8 = '';
 These colors correspond to the colors that you defined in your config.h for DWM. Make any changes you think are pretty.
 - - - -
 ```
-#define TODO_MAX_LEN			100
-```
-Maximum number of characters to display in the TODO string.
-- - - -
-```
 #define WIFI_INTERFACE			"wlp4s0"
 ```
 The name of your wireless device. You can find it by running `iw dev` or `ip link`.
