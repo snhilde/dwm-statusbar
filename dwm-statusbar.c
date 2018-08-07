@@ -1782,7 +1782,7 @@ get_bar_max_len(Display *dpy)
 	} else {
 		if (!(xfont = XLoadQueryFont(dpy, fontname))
 				&& !(xfont = XLoadQueryFont(dpy, "fixed")))
-			INIT_ERR("error loading font for bar\n", -1)
+			INIT_ERR("error loading font for bar", -1)
 		width_c = XTextWidth(xfont, "0", 1);
 		XFreeFont(dpy, xfont);
 	}
