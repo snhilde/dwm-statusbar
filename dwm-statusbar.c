@@ -11,12 +11,31 @@ center_bottom_bar(char *bottom_bar)
 	}
 }
 
+static void
+trunc_TODO_string(void)
+{
+	int len_avail, i;
+	const char *top_strings[5] = {weather_string, backup_status_string, portfolio_value_string,
+		wifi_status_string, time_string};
+	
+	len_avail = bar_max_len - 32; // 28 for tags on left side
+	for (i = 0; i < 5; i++)
+		len_avail -= strlen(top_strings[i]);
+	
+	if (strlen(TODO_string) > len_avail) {
+		memset(TODO_string + len_avail - 4, '.', 3);
+		TODO_string[len_avail - 1] = '\0';
+	}
+}
+
 static int
 format_string(Display *dpy, Window root)
 {
 	memset(statusbar_string, '\0', 1024);
 	memset(top_bar, '\0', 512);
 	memset(bottom_bar, '\0', 512);
+	
+	trunc_TODO_string();
 			
 	strcat(top_bar, TODO_string);
 	strcat(top_bar, log_status_string);
@@ -98,9 +117,6 @@ get_TODO(void)
 				break;
 		}
 	}
-	
-	memset(TODO_string + TODO_MAX_LEN - 3, '.', 3);
-	TODO_string[TODO_MAX_LEN] = '\0';
 	
 	if (fclose(fd))
 		ERR(TODO_string, "Error Closing File")
@@ -1774,7 +1790,7 @@ get_bar_max_len(Display *dpy)
 	if (fontname == NULL)
 		INIT_ERR("error allocating memory for fontname", -1)
 	if (get_font(fontname) < 0)
-		return -1;
+		INIT_ERR("error getting font in get_bar_max_len()", -1)
 	fontset = XCreateFontSet(dpy, fontname, &miss_list, &count, &def);
 	if (fontset) {
 		width_c = XmbTextExtents(fontset, "0", 1, NULL, &rect);
