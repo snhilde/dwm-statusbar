@@ -459,40 +459,89 @@ parse_portfolio_json(char *raw_json)
 	else
 		equity_f = atof(extended_hours_equity_obj->valuestring);
 	
-	if (!equity_previous_close) {
+	if (need_equity_previous_close) {
 		equity_previous_close_obj = cJSON_GetObjectItem(parsed_json, "equity_previous_close");
 		if (!equity_previous_close_obj)
 			return -1;
 		equity_previous_close = atof(equity_previous_close_obj->valuestring);
+		need_equity_previous_close = false;
 	}
 	
 	cJSON_Delete(parsed_json);
 	return equity_f;
 }
-	
+
 static int
-get_portfolio_value(void)
+get_cst_time(int flag)
 {
-	// Robinhood starts trading at 9:00 am EST
-	if (timezone / 3600 + tm_struct->tm_hour < 14 && equity_found == true)
-		return 0;
-	// Robinhood stops after-market trading at 6:00 pm EST
-	if (timezone / 3600 + tm_struct->tm_hour > 23 && equity_found == true)
-		return 0;
+	time_t seconds;
+	int hour;
+	struct tm *cst_tm_struct;
+	
+	time(&seconds);
+	seconds += timezone - UTC_TO_CST_SECONDS;	// calculates seconds since epoch for CST
+	
+	cst_tm_struct = localtime(&seconds);
+	
+	if (flag == HOUR)
+		return cst_tm_struct->tm_hour;
+	else if (flag == DAY)
+		return cst_tm_struct->tm_wday;
+	else
+		return -1;
+}
+
+static int
+run_or_pass(void)
+{
+	int cst_hour;
+	int cst_day;
+	
+	cst_hour = get_cst_time(HOUR);
+	cst_day = get_cst_time(DAY);
+	
+	if (equity_found == true) {
+		// Markets are closed on Saturday and Sunday CST
+		if (cst_day == 0 || cst_day == 6)
+			return 1;
+		// Robinhood starts trading at 9:00 am EST
+		else if (cst_hour < 9)
+			return 1;
+		// Robinhood stops after-market trading at 6:00 pm EST
+		else if (cst_hour > 18)
+			return 1;
+		else
+			if (day_equity_previous_close != cst_day) {
+				need_equity_previous_close = true;
+				day_equity_previous_close = cst_day;
+			}
+	} else
+		day_equity_previous_close = cst_day;
 	
 	if (wifi_connected == false) {
 		sprintf(portfolio_value_string, "%crobinhood:%cN/A",
 				COLOR_HEADING, COLOR_NORMAL);
-		return -2;
+		return 2;
 	}
 	
 	if (portfolio_init == false)
-		return -2;
+		return 2;
+	
+	return 0;
+}
+	
+static int
+get_portfolio_value(void)
+{
+	switch (run_or_pass()) {
+		case 0: break;
+		case 1: return 0;
+		case 2: return -2;
+	}
 	
 	if (!memset(portfolio_value_string, '\0', 32))
 		ERR(portfolio_value_string, "Error resetting portfolio_va...")
 			
-	int tz_gap;
 	CURL *curl;
 	struct json_struct portfolio_jstruct;
 	static double equity;
