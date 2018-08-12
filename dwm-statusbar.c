@@ -19,7 +19,7 @@ static int
 trunc_TODO_string(void)
 {
 	int len_avail, i;
-	const char *top_strings[5] = {weather_string, backup_string, robinhood_string,
+	const char *top_strings[5] = {weather_string, backup_string, portfolio_string,
 		wifi_string, time_string};
 	
 	len_avail = bar_max_len - 32; // 32 for tags on left side
@@ -43,11 +43,11 @@ format_string(Display *dpy, Window root)
 	
 	trunc_TODO_string();
 			
-	strncat(top_bar, TODO_string, BAR_LENGTH - strlen(top_bar));
 	strncat(top_bar, log_string, BAR_LENGTH - strlen(top_bar));
+	strncat(top_bar, TODO_string, BAR_LENGTH - strlen(top_bar));
 	strncat(top_bar, weather_string, BAR_LENGTH - strlen(top_bar));
 	strncat(top_bar, backup_string, BAR_LENGTH - strlen(top_bar));
-	strncat(top_bar, robinhood_string, BAR_LENGTH - strlen(top_bar));
+	strncat(top_bar, portfolio_string, BAR_LENGTH - strlen(top_bar));
 	strncat(top_bar, wifi_string, BAR_LENGTH - strlen(top_bar));
 	strncat(top_bar, time_string, BAR_LENGTH - strlen(top_bar));
 
@@ -70,6 +70,30 @@ format_string(Display *dpy, Window root)
 		return -1;
 	if (!XFlush(dpy))
 		return -1;
+	
+	return 0;
+}
+
+static int
+get_log(void)
+{
+	struct stat sb_stat;
+	struct stat dwm_stat;
+
+	if (stat(DWM_LOG_FILE, &dwm_stat) < 0)
+		ERR(log_string, "dwm.log error")
+	if (stat(STATUSBAR_LOG_FILE, &sb_stat) < 0)
+		ERR(log_string, "dwm-statusbar.log error")
+			
+	if ((intmax_t)dwm_stat.st_size > 1)
+		sprintf(log_string, "%clog: %c Check DWM Log%c ",
+				COLOR_HEADING, COLOR_ERROR, COLOR_NORMAL);
+	else if ((intmax_t)sb_stat.st_size > 1)
+		sprintf(log_string, "%clog: %c Check SB Log%c ",
+				COLOR_HEADING, COLOR_ERROR, COLOR_NORMAL);
+	else
+		if (!memset(log_string, '\0', STRING_LENGTH))
+			ERR(log_string, "error resetting log_string")
 	
 	return 0;
 }
@@ -98,11 +122,12 @@ get_TODO(void)
 			
 	// line 1
 	if (fgets(line, STRING_LENGTH, fd) == NULL) {
-		strncpy(TODO_string, "All tasks completed!", STRING_LENGTH);
+		strncpy(TODO_string, "All tasks completed!", STRING_LENGTH - 1);
 		return 0;
 	}
 	line[strlen(line) - 1] = '\0'; // remove weird characters at end
-	PRINT_COLOR(TODO, COLOR_NORMAL, line);
+	snprintf(TODO_string, STRING_LENGTH, "%cTODO:%c%s",
+			COLOR_HEADING, COLOR_NORMAL, line);
 	
 	// lines 2 and 3
 	for (int i = 0; i < 2; i++) {
@@ -128,28 +153,6 @@ get_TODO(void)
 	if (fclose(fd))
 		ERR(TODO_string, "Error Closing File")
 			
-	return 0;
-}
-
-static int
-get_log_status(void)
-{
-	struct stat sb_stat;
-	struct stat dwm_stat;
-
-	if (stat(STATUSBAR_LOG_FILE, &sb_stat) < 0)
-		ERR(log_string, "dwm-statusbar.log error")
-	if (stat(DWM_LOG_FILE, &dwm_stat) < 0)
-		ERR(log_string, "dwm.log error")
-			
-	if ((intmax_t)sb_stat.st_size > 1)
-		PRINT_COLOR_W_BACK(log, COLOR_ERROR, "Check SB Log");
-	else if ((intmax_t)dwm_stat.st_size > 1)
-		PRINT_COLOR_W_BACK(log, COLOR_ERROR, "Check DWM Log");
-	else
-		if (!memset(log_string, '\0', STRING_LENGTH))
-			ERR(log_string, "error resetting log_string")
-	
 	return 0;
 }
 
@@ -196,7 +199,7 @@ parse_forecast_json(char *raw_json)
 			data[i].high = -1000;
 			data[i].low = 1000;
 		}
-			data[i].precipitation = 0.0;
+		data[i].precipitation = 0.0;
 	}
 	
 	list_array = cJSON_GetObjectItem(parsed_json, "list");
@@ -304,14 +307,14 @@ get_weather(void)
 	if (!memset(weather_string, '\0', STRING_LENGTH))
 		ERR(weather_string, "Error resetting weather_string")
 			
-	PRINT_COLOR(weather, COLOR_NORMAL, "N/A");
+	sprintf(weather_string, "%c weather:%cN/A ", COLOR_HEADING, COLOR_NORMAL);
 	if (wifi_connected == false)
 		return -2;
 	
 	CURL *curl;
 	int i;
 	struct json_struct json_structs[2];
-	static const char *urls[2] = { weather_url, forecast_url };
+	static const char *urls[2] = { WEATHER_URL, FORECAST_URL };
 	
 	day_safe = tm_struct->tm_wday;
 	
@@ -339,7 +342,7 @@ get_weather(void)
 				if (parse_forecast_json(json_structs[i].data) < 0)
 					ERR(weather_string, "Error parsing forecast json. Please fix issue and restart.")
 			}
-			weather_update = false;
+			need_to_get_weather = false;
 		} else
 			break;
 	}
@@ -352,32 +355,32 @@ get_weather(void)
 }
 
 static int
-parse_error_code(int code, char *ret_str)
+parse_error_code(int code, char *output, int len)
 {
 	switch (code) {
 		case 20:
-			strncpy(ret_str, "already done", 16); break;
+			strncpy(output, "already done", len - 1); break;
 		case 21:
-			strncpy(ret_str, "tar error", 16); break;
+			strncpy(output, "tar error", len - 1); break;
 		case 22:
-			strncpy(ret_str, "gpg error", 16); break;
+			strncpy(output, "gpg error", len - 1); break;
 		case 23:
-			strncpy(ret_str, "no acc token", 16); break;
+			strncpy(output, "no acc token", len - 1); break;
 		case 24:
-			strncpy(ret_str, "error get url", 16); break;
+			strncpy(output, "error get url", len - 1); break;
 		case 25:
-			strncpy(ret_str, "token timeout", 16); break;
+			strncpy(output, "token timeout", len - 1); break;
 		case 26:
-			strncpy(ret_str, "err verifying", 16); break;
+			strncpy(output, "err verifying", len - 1); break;
 		default:
-			strncpy(ret_str, "err in backup", 16);
+			strncpy(output, "err in backup", len - 1);
 	}
 	
 	return 0;
 }
 
 static int
-get_backup_status(void)
+get_backup(void)
 {
 	struct stat file_stat;
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
@@ -388,10 +391,12 @@ get_backup_status(void)
 	backup_mtime = file_stat.st_mtime;
 	
 	FILE *fd;
-	char line[32], print[16], color = COLOR_ERROR;
-	int value;
+	char line[32], status[16], color = COLOR_ERROR;
+	int value, len;
 	time_t curr_time;
 	time_t t_diff;
+	
+	len = sizeof status;
 	
 	if (!memset(backup_string, '\0', STRING_LENGTH))
 		ERR(backup_string, "Error resetting backup_string")
@@ -409,24 +414,25 @@ get_backup_status(void)
 		sscanf(line, "%d", &value);
 				
 		if (value >= 20 && value <= 26)
-			parse_error_code(value, print);
+			parse_error_code(value, status, len);
 		else {
 			time(&curr_time);
 			t_diff = curr_time - value;
 			if (t_diff > 86400)
-				strncpy(print, "missed", 16);
+				strncpy(status, "missed", len - 1);
 			else {
-				strncpy(print, "done", 16);
+				strncpy(status, "done", len - 1);
 				color = COLOR1;
 			}
 		}
 	} else {
 		line[strlen(line) - 1] = '\0';
-		strncpy(print, line, 16);
+		strncpy(status, line, len - 1);
 		color = COLOR2;
 	}
 	
-	PRINT_COLOR_W_BACK(backup, color, print);
+	snprintf(backup_string, STRING_LENGTH, "%cbackup:%c %s%c ",
+			COLOR_HEADING, color, status, COLOR_NORMAL);
 		
 	return 0;
 }
@@ -485,13 +491,19 @@ get_cst_time(int flag)
 }
 
 static int
-run_or_pass(void)
+run_or_skip(void)
 {
 	int cst_hour;
 	int cst_day;
 	
 	cst_hour = get_cst_time(HOUR);
 	cst_day = get_cst_time(DAY);
+	
+	if (wifi_connected == false)
+		return 2;
+	
+	if (portfolio_consts_found == false)
+		return 2;
 	
 	if (equity_found == true) {
 		// Markets are closed on Saturday and Sunday CST
@@ -511,28 +523,23 @@ run_or_pass(void)
 	} else
 		day_equity_previous_close = cst_day;
 	
-	if (wifi_connected == false)
-		return 2;
-	
-	if (portfolio_init == false)
-		return 2;
-	
 	return 0;
 }
 	
 static int
-get_portfolio_value(void)
+get_portfolio(void)
 {
-	switch (run_or_pass()) {
+	switch (run_or_skip()) {
 		case 0: break;
 		case 1: return 0;
 		case 2: return -2;
 	}
 	
-	if (!memset(robinhood_string, '\0', STRING_LENGTH))
-		ERR(robinhood_string, "Error resetting portfolio_va...")
+	if (!memset(portfolio_string, '\0', STRING_LENGTH))
+		ERR(portfolio_string, "Error resetting portfolio_va...")
 			
-	PRINT_COLOR(robinhood, COLOR_NORMAL, "N/A");
+	sprintf(portfolio_string, "%crobinhood:%cN/A",
+			COLOR_HEADING, COLOR_NORMAL);
 			
 	CURL *curl;
 	struct json_struct portfolio_jstruct;
@@ -541,26 +548,27 @@ get_portfolio_value(void)
 	
 	portfolio_jstruct.data = malloc(1);
 	if (portfolio_jstruct.data == NULL)
-		ERR(robinhood_string, "Out of memory");
+		ERR(portfolio_string, "Out of memory");
 	portfolio_jstruct.size = 0;
 	
 	if (curl_global_init(CURL_GLOBAL_ALL))
-		ERR(robinhood_string, "Error curl_global_init()")
+		ERR(portfolio_string, "Error curl_global_init()")
 	if (!(curl = curl_easy_init()))
-		ERR(robinhood_string, "Error curl_easy_init()")
+		ERR(portfolio_string, "Error curl_easy_init()")
 			
 	if (curl_easy_setopt(curl, CURLOPT_URL, portfolio_url) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
-		ERR(robinhood_string, "Error curl_easy_setops()")
+		ERR(portfolio_string, "Error curl_easy_setops()")
 	if (curl_easy_perform(curl) == CURLE_OK) {
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
-			ERR(robinhood_string, "Error parsing portfolio json")
+			ERR(portfolio_string, "Error parsing portfolio json")
 		snprintf(equity_string, sizeof equity_string, "%.2lf", equity);
 		
-		PRINT_COLOR(robinhood, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity_string);
+		sprintf(portfolio_string, "%crobinhood:%c%.2lf",
+				COLOR_HEADING, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
 		equity_found = true;
 	}
 			
@@ -580,6 +588,8 @@ free_wifi_list(struct nlmsg_list *list)
 		free(list);
 		list = next;
 	}
+	
+	return 0;
 }
 
 static int
@@ -588,7 +598,8 @@ format_wifi_status(char color, char *ssid_string)
 	if (strlen(ssid_string) > STRING_LENGTH - 12)
 		memset(ssid_string + STRING_LENGTH - 15, '.', 3);
 	
-	PRINT_COLOR_W_BACK(wifi, color, ssid_string);
+	snprintf(wifi_string, STRING_LENGTH, "%c wifi:%c %s%c",
+			COLOR_HEADING, color, ssid_string, COLOR_NORMAL);
 	
 	return 0;
 }
@@ -696,7 +707,7 @@ ip_check(int flag)
 }
 
 static int
-get_wifi_status(void)
+get_wifi(void)
 {
 	struct nl_sock *socket;
 	int id;
@@ -714,19 +725,20 @@ get_wifi_status(void)
 	if (op_state == -1) return -1;
 	
 	if (ifi_flag == 0 && op_state == 2) {
-		strncpy(wifi_string, "Wireless Device Set Down", 31);
+		strncpy(ssid_string, "Wireless Device Set Down", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 0) {
-		strncpy(wifi_string, "Wireless State Unknown", 31);
+		strncpy(ssid_string, "Wireless State Unknown", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 2) {
-		strncpy(wifi_string, "No Connection Initiated", 31);
+		strncpy(ssid_string, "No Connection Initiated", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 5) {
-		strncpy(wifi_string, "No Carrier", 31);
+		strncpy(ssid_string, "No Carrier", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 6) {
-		if (wifi_connected == true) return 0;
+		if (wifi_connected == true)
+			return 0;
 		if (!memset(wifi_string, '\0', STRING_LENGTH))
 			ERR(wifi_string, "Error resetting wifi_string")
 		ssid_string = malloc(STRING_LENGTH);
@@ -758,7 +770,7 @@ get_wifi_status(void)
 		if (nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
 			ERR(wifi_string, "err: nla_cb_set()")
 		if (nl_recvmsgs(socket, cb) < 0)
-			PRINT_COLOR(wifi, COLOR_NORMAL, "No Wireless Connection");
+			strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
 		else
 			color = COLOR1;
 		
@@ -771,7 +783,6 @@ get_wifi_status(void)
 		free(cb);
 	} else
 		ERR(wifi_string, "Error with WiFi Status")
-	
 	
 	return 0;
 }
@@ -819,7 +830,7 @@ format_bytes(long *bytes, int *step)
 }
 
 static int
-get_network_usage(void)
+get_network(void)
 {
 	if (!memset(network_string, '\0', STRING_LENGTH))
 		ERR(network_string, "Error resetting network_usage")
@@ -897,7 +908,7 @@ process_stat(struct disk_usage_struct *dus)
 }
 
 static int
-get_disk_usage(void)
+get_disk(void)
 {
 	if (!memset(disk_string, '\0', STRING_LENGTH))
 		ERR(disk_string, "Error resetting disk_string")
@@ -920,7 +931,7 @@ get_disk_usage(void)
 }
 
 static int
-get_memory(void)
+get_RAM(void)
 {
 	if (!memset(RAM_string, '\0', STRING_LENGTH))
 		ERR(RAM_string, "Error resetting RAM_string")
@@ -942,7 +953,7 @@ get_memory(void)
 }
 
 static int
-get_cpu_load(void)
+get_load(void)
 {
 	if (!memset(load_string, '\0', STRING_LENGTH))
 		ERR(load_string, "Error resetting load_string")
@@ -962,50 +973,61 @@ get_cpu_load(void)
 static int
 get_cpu_usage(void)
 {
+	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
 	if (!memset(CPU_usage_string, '\0', STRING_LENGTH))
 		ERR(CPU_usage_string, "Error resetting CPU_usage_string")
 	
 	/* from top.c */
 	FILE *fd;
-	char buf[64];
-	int seca = 0, secb = 0, secc = 0, secd = 0, top, bottom, total = 0;
+	char line[64];
+	int working_new = 0, working_old = 0, total_new = 0, total_old = 0;
+	int working_diff, total_diff, total = 0;
 	int i;
 	
 	static struct {
-		int oldval[7];
-		int newval[7];
+		int old[7];
+		int new[7];
 	} cpu;
 
 	fd = fopen(CPU_USAGE_FILE, "r");
 	if (!fd)
 		ERR(CPU_usage_string, "Read Error")
-	fgets(buf, 64, fd);
+	fgets(line, 64, fd);
 	if (fclose(fd))
 		ERR(CPU_usage_string, "Close Error")
 	
-	sscanf(buf, "cpu %d %d %d %d", &cpu.newval[0], &cpu.newval[1], &cpu.newval[2], &cpu.newval[3],
-			&cpu.newval[4], &cpu.newval[5], &cpu.newval[6]);
+	/* from /proc/stat, cpu time spent in each mode:
+	line 1: user mode
+	line 2: nice user mode
+	line 3: system mode
+	line 4: idle mode
+	line 5: time spent waiting for I/O to complete
+	line 6: time spent on interrupts
+	line 7: time servicing softirqs */
+	sscanf(line, "cpu %d %d %d %d", &cpu.new[0], &cpu.new[1], &cpu.new[2], &cpu.new[3],
+			&cpu.new[4], &cpu.new[5], &cpu.new[6]);
 
 	// exclude first run
-	if (cpu.oldval[0]) {
+	if (cpu.old[0]) {
 		for (i = 0; i < 7; i++) {
-			secc += cpu.newval[i];
-			secd += cpu.oldval[i];
+			total_new += cpu.new[i];
+			total_old += cpu.old[i];
 			
-			if (i == 3) continue;
-			seca += cpu.newval[i];
-			secb += cpu.oldval[i];
+			if (i == 3) continue;	// skip idle time
+			
+			working_new += cpu.new[i];
+			working_old += cpu.old[i];
 		}
 		
-		top = seca - secb + 1;
-		bottom = secc - secd + 1;
+		working_diff = working_new - working_old + 1;
+		total_diff = total_new - total_old + 1;
 		
-		total = rint((double)top / (double)bottom * 100);
+		total = rint((double)working_diff / (double)total_diff * 100);
 		total *= cpu_ratio;
 	}
 	
 	for (i = 0; i < 7; i++)
-		cpu.oldval[i] = cpu.newval[i];
+		cpu.old[i] = cpu.new[i];
 	
 	if (total >= 100) total = 99;
 	snprintf(CPU_usage_string, STRING_LENGTH, " %c CPU usage:%c%2d%%%c ",
@@ -1017,34 +1039,50 @@ get_cpu_usage(void)
 }
 
 static int
+traverse_list(struct file_link *list, char *path, int *num, int *count)
+{
+	struct file_link *link;
+	int i, scan_val, total;
+	FILE *fd;
+	char file[STRING_LENGTH];
+	
+	link = list;
+	i = 0;
+	total = 0;
+	while (link != NULL) {
+		snprintf(file, STRING_LENGTH, "%s%s", path, link->filename);
+		
+		if (!(fd = fopen(file, "r")))
+			return -1;
+		if (!fscanf(fd, "%d", &scan_val))
+			return -1;
+		if (fclose(fd))
+			return -1;
+		
+		total += scan_val;
+		
+		link = link->next;
+		i++;
+	}
+	
+	*num = total;
+	*count = i;
+	
+	return 0;
+}
+
+static int
 get_cpu_temp(void)
 {
 	if (!memset(CPU_temp_string, '\0', STRING_LENGTH))
 		ERR(CPU_temp_string, "Error resetting CPU_temp_string")
+			
+	int total, count, temp, tempperc; 
 	
-	struct cpu_temp_link *snake;
-	int counter;
-	char path[STRING_LENGTH];
-	int temp = 0;
-	int tempperc;
+	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count) < 0)
+		ERR(CPU_temp_string, "Error traversing list in get_cpu_temp()")
 	
-	for (snake = temp_list, counter = 0; snake != NULL; snake = snake->next, counter++) {
-		FILE *fd;
-		int tmp;
-		
-		snprintf(path, STRING_LENGTH, "%s%s", CPU_TEMP_DIR, snake->filename);
-		
-		fd = fopen(path, "r");
-		if (!fd)
-			ERR(CPU_temp_string, "Error Opening CPU File")
-		if (!fscanf(fd, "%d", &tmp))
-			ERR(CPU_temp_string, "Error Scanning CPU File")
-		if (fclose(fd))
-			ERR(CPU_temp_string, "Error Closing CPU File")
-		temp += tmp;
-	}
-	
-	temp /= counter;
+	temp = total / count;
 	tempperc = rint((double)temp / (double)temp_max * 100);
 	temp >>= 10;
 	
@@ -1057,23 +1095,17 @@ get_cpu_temp(void)
 }
 
 static int
-get_fan_speed(void)
+get_fan(void)
 {
 	if (!memset(fan_string, '\0', STRING_LENGTH))
 		ERR(fan_string, "Error resetting fan_string")
 	
-	FILE *fd;
-	int rpm;
-	int fanperc;
+	int rpm, count, fanperc;
 	
-	fd = fopen(FAN_SPEED_FILE, "r");
-	if (!fd)
-		ERR(fan_string, "Error Opening File")
-	if (!fscanf(fd, "%d", &rpm))
-		ERR(fan_string, "Error Scanning File")
-	if (fclose(fd))
-		ERR(fan_string, "Error Closing File")
+	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count) < 0)
+		ERR(fan_string, "Error traversing list in get_fan()")
 	
+	rpm /= count;
 	rpm -= fan_min;
 	if (rpm <= 0)
 		rpm = 0;
@@ -1081,7 +1113,7 @@ get_fan_speed(void)
 	fanperc = rint((double)rpm / (double)fan_max * 100);
 	
 	if (fanperc >= 100)
-		snprintf(fan_string, STRING_LENGTH, " %c fan: MAX%c ", COLOR_WARNING, COLOR_NORMAL);
+		snprintf(fan_string, STRING_LENGTH, " %c fan: MAX%c ", COLOR_ERROR, COLOR_NORMAL);
 	else
 		snprintf(fan_string, STRING_LENGTH, " %c fan:%c%2d%%%c ",
 				fanperc >= 75? COLOR_WARNING : COLOR_HEADING,
@@ -1103,7 +1135,7 @@ get_brightness(void)
 	int scrn_perc, kbd_perc;
 	
 	for (int i = 0; i < 2; i++) {
-		if (i == 1 && DISPLAY_KBD == false) continue;
+		if (i == 1 && !DISPLAY_KBD) continue;
 		FILE *fd;
 		fd = fopen(b_files[i], "r");
 		if (!fd)
@@ -1114,10 +1146,10 @@ get_brightness(void)
 	}
 	
 	scrn_perc = rint((double)scrn / (double)screen_brightness_max * 100);
-	if (DISPLAY_KBD == true)
+	if (DISPLAY_KBD)
 		kbd_perc = rint((double)kbd / (double)kbd_brightness_max * 100);
 	
-	if (DISPLAY_KBD == true)
+	if (DISPLAY_KBD)
 		snprintf(brightness_string, STRING_LENGTH, " %c brightness:%c%3d%%, %3d%%%c ",
 			COLOR_HEADING, COLOR_NORMAL, scrn_perc, kbd_perc, COLOR_NORMAL);
 	else
@@ -1236,8 +1268,6 @@ parse_account_number_json(char *raw_json)
 {
 	cJSON *parsed_json = cJSON_Parse(raw_json);
 	cJSON *results, *account, *account_num;
-	cJSON *weather_dict;
-	int id;
 	
 	results = cJSON_GetObjectItem(parsed_json, "results");
 	if (!results)
@@ -1249,7 +1279,7 @@ parse_account_number_json(char *raw_json)
 	if (!account_num)
 		return -1;
 	
-	strncpy(account_number, account_num->valuestring, 31);
+	strncpy(account_number, account_num->valuestring, STRING_LENGTH - 1);
 	
 	cJSON_Delete(parsed_json);
 	return 0;
@@ -1358,7 +1388,7 @@ init_portfolio()
 		return -1;
 	snprintf(portfolio_url, STRING_LENGTH,
 			"https://api.robinhood.com/accounts/%s/portfolio/", account_number);
-	portfolio_init = true;
+	portfolio_consts_found = true;
 	
 	return 0;
 }
@@ -1384,27 +1414,30 @@ loop (Display *dpy, Window root)
 		
 		// // run every second
 		get_time();
-		get_network_usage();
+		get_network();
 		get_cpu_usage();
-		if (weather_update == true && wifi_connected == true)
-			if ((weather_return = get_weather()) < 0)
-				if (weather_return != -2)
-					break;
-		if (portfolio_init == false && wifi_connected == true)
-			init_portfolio();
+		if (wifi_connected == true) {
+			if (need_to_get_weather == true)
+				if ((weather_return = get_weather()) < 0)
+					if (weather_return != -2)
+						break;
+			if (portfolio_consts_found == false)
+				init_portfolio();
+		}
 		
 		// run every five seconds
 		if (tm_struct->tm_sec % 5 == 0) {
+			get_log();
 			get_TODO();
-			get_backup_status();
-			if (get_portfolio_value() == -1)
+			get_backup();
+			if (get_portfolio() == -1)
 				break;
-			if (get_wifi_status() < 0)
+			if (get_wifi() < 0)
 				break;
-			get_memory();
-			get_cpu_load();
+			get_RAM();
+			get_load();
 			get_cpu_temp();
-			get_fan_speed();
+			get_fan();
 			get_brightness();
 			get_volume();
 			get_battery();
@@ -1412,14 +1445,13 @@ loop (Display *dpy, Window root)
 		
 		// run every minute
 		if (tm_struct->tm_sec == 0) {
-			get_log_status();
-			get_disk_usage();
+			get_disk();
 		}
 		
 		// run every 3 hours
 		if ((tm_struct->tm_hour + 1) % 3 == 0 && tm_struct->tm_min == 0 && tm_struct->tm_sec == 0)
 			if (wifi_connected == false)
-				weather_update = true;
+				need_to_get_weather = true;
 			else
 				if ((weather_return = get_weather()) < 0)
 					if (weather_return != -2)
@@ -1430,19 +1462,6 @@ loop (Display *dpy, Window root)
 	}
 	
 	return -1;
-}
-
-static int
-make_urls(void)
-{
-	snprintf(weather_url, STRING_LENGTH,
-			"http://api.openweathermap.org/data/2.5/weather?id=%s&appid=%s&units=imperial",
-			LOCATION, KEY);
-	snprintf(forecast_url, STRING_LENGTH,
-			"http://api.openweathermap.org/data/2.5/forecast?id=%s&appid=%s&units=imperial",
-			LOCATION, KEY);
-	
-	return 0;
 }
 
 static int
@@ -1494,8 +1513,8 @@ get_kbd_brightness_max(void)
 	FILE *fd;
 	int max;
 	
-	strncpy(file_str, KBD_BRIGHTNESS_FILE, STRING_LENGTH);
-	strncpy(dir_str, dirname(file_str), STRING_LENGTH);
+	strncpy(file_str, KBD_BRIGHTNESS_FILE, STRING_LENGTH - 1);
+	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
 	
 	if ((dir = opendir(dir_str)) == NULL)
 		INIT_ERR("error opening keyboard brightness directory", -1)
@@ -1535,8 +1554,8 @@ get_screen_brightness_max(void)
 	FILE *fd;
 	int max;
 	
-	strncpy(file_str, SCREEN_BRIGHTNESS_FILE, STRING_LENGTH);
-	strncpy(dir_str, dirname(file_str), STRING_LENGTH);
+	strncpy(file_str, SCREEN_BRIGHTNESS_FILE, STRING_LENGTH - 1);
+	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
 	
 	if ((dir = opendir(dir_str)) == NULL)
 		INIT_ERR("error opening screen brightness directory", -1)
@@ -1566,104 +1585,9 @@ get_screen_brightness_max(void)
 }
 
 static int
-get_fan_max(void)
+free_list(struct file_link *list)
 {
-	char file_str[STRING_LENGTH];
-	char dir_str[STRING_LENGTH];
-	DIR *dir;
-	struct dirent *file;
-	char tmp[64];
-	char *token;
-	FILE *fd;
-	int count = 0;
-	int max;
-	
-	strncpy(file_str, FAN_SPEED_FILE, STRING_LENGTH);
-	strncpy(dir_str, dirname(file_str), STRING_LENGTH);
-	
-	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening fan directory", -1)
-			
-	while ((file = readdir(dir)) != NULL) {
-		strncpy(tmp, file->d_name, 64);
-		if ((token = strtok(tmp, "_")))
-			if ((token = strtok(NULL, "_")))
-				if (!strcmp(token, "max")) {
-					if (strlen(dir_str) + strlen(file->d_name) + 2 > sizeof dir_str)
-						break;
-					strncat(dir_str, "/", STRING_LENGTH - strlen(dir_str));
-					strncat(dir_str, file->d_name, STRING_LENGTH - strlen(dir_str));
-					count++;
-					break;
-				}
-	}
-	if (!count)
-		INIT_ERR("error finding fan max file", -1)
-	
-	fd = fopen(dir_str, "r");
-	if (!fd)
-		INIT_ERR("error opening file in get_fan_max", -1)
-	fscanf(fd, "%d", &max);
-	max -= fan_min;
-	
-	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_fan_max", -1)
-	if (closedir(dir) < 0)
-		INIT_ERR("error closing directory in get_fan_max", -1)
-	return max;
-}
-
-static int
-get_fan_min(void)
-{
-	char file_str[STRING_LENGTH];
-	char dir_str[STRING_LENGTH];
-	DIR *dir;
-	struct dirent *file;
-	char tmp[64];
-	char *token;
-	FILE *fd;
-	int count = 0;
-	int min;
-	
-	strncpy(file_str, FAN_SPEED_FILE, STRING_LENGTH);
-	strncpy(dir_str, dirname(file_str), STRING_LENGTH);
-	
-	if ((dir = opendir(dir_str)) == NULL)
-		INIT_ERR("error opening fan directory", -1)
-			
-	while ((file = readdir(dir)) != NULL) {
-		strncpy(tmp, file->d_name, 64);
-		if ((token = strtok(tmp, "_")))
-			if ((token = strtok(NULL, "_")))
-				if (!strcmp(token, "min")) {
-					if (strlen(dir_str) + strlen(file->d_name) + 2 > sizeof(dir_str))
-						break;
-					strncat(dir_str, "/", STRING_LENGTH - strlen(dir_str));
-					strncat(dir_str, file->d_name, STRING_LENGTH - strlen(dir_str));
-					count++;
-					break;
-				}
-	}
-	if (!count)
-		INIT_ERR("error finding fan min file", -1)
-	
-	fd = fopen(dir_str, "r");
-	if (!fd)
-		INIT_ERR("error opening file in get_fan_min", -1)
-	fscanf(fd, "%d", &min);
-	
-	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_fan_min", -1)
-	if (closedir(dir) < 0)
-		INIT_ERR("error closing directory in get_fan_min", -1)
-	return min;
-}
-
-static int
-free_list(struct cpu_temp_link *list)
-{
-	struct cpu_temp_link *next;
+	struct file_link *next;
 	
 	while (list != NULL) {
 		next = list->next;
@@ -1671,22 +1595,24 @@ free_list(struct cpu_temp_link *list)
 		free(list);
 		list = next;
 	}
+	
+	return 0;
 }
 
-static struct cpu_temp_link *
-add_link(struct cpu_temp_link *list, char *filename)
+static struct file_link *
+add_link(struct file_link *list, char *filename)
 {
-	struct cpu_temp_link *new;
+	struct file_link *new;
 	int len;
 	
-	new = malloc(sizeof(struct cpu_temp_link));
+	new = malloc(sizeof(struct file_link));
 	if (new == NULL)
-		INIT_ERR("error allocating memory for cpu temperature file list", NULL)
+		return NULL;
 			
 	len = strlen(filename) + 1;
 	new->filename = malloc(len);
 	if (new->filename == NULL)
-		INIT_ERR("error allocating memory for cpu temperature file list name", NULL)
+		return NULL;
 	
 	strncpy(new->filename, filename, len);
 	new->next = NULL;
@@ -1701,65 +1627,48 @@ add_link(struct cpu_temp_link *list, char *filename)
 	return list;
 }
 
-static struct cpu_temp_link *
-populate_temp_list(struct cpu_temp_link *list, char *match)
+static struct file_link *
+populate_list(struct file_link *list, char *path, char *base, char *match)
 {
 	DIR *dir;
 	struct dirent *file;
-	char tmp[64];
-	char *token;
 	int count = 0;
 	
-	if ((dir = opendir(CPU_TEMP_DIR)) == NULL)
+	if ((dir = opendir(path)) == NULL)
 		return NULL;
 		
 	while ((file = readdir(dir)) != NULL) {
-		strncpy(tmp, file->d_name, 64);
-		if ((token = strtok(tmp, "_")))
-			if ((token = strtok(NULL, "_")))
-				if (!strcmp(token, match)) {
-					list = add_link(list, file->d_name);
-					if (list == NULL)
-						INIT_ERR("error adding link to cpu temperature file list", NULL)
-					count++;
-				}
+		if (strstr(file->d_name, base) != NULL)
+			if (strstr(file->d_name, match) != NULL) {
+				list = add_link(list, file->d_name);
+				if (list == NULL)
+					return NULL;
+				count++;
+			}
 	}
 	if (!count)
-		INIT_ERR("error finding files for cpu temp list", NULL)
+		return NULL;
 	
 	if (closedir(dir) < 0)
-		INIT_ERR("error closing directory in populate_temp_list", NULL)
+		return NULL;
 	return list;
 }
 
 static int
-get_temp_max(void)
+get_gen_consts(char *path, char *base, char *match)
 {
-	struct cpu_temp_link *max_list = NULL, *snake;
-	FILE *fd;
-	int max;
-	int total = 0;
-	int counter;
-	char path[STRING_LENGTH];
+	struct file_link *list = NULL, *link;
+	int total, count;
 	
-	max_list = populate_temp_list(max_list, "max");
-	if (max_list == NULL)
-			INIT_ERR("error populating temperature file list in get_temp_max", -1)
+	list = populate_list(list, path, base, match);
+	if (list == NULL)
+		INIT_ERR("error populating list in get_gen_consts()", -1)
+				
+	if (traverse_list(list, path, &total, &count) < 0)
+		INIT_ERR("Error traversing list in get_gen_consts()", -1)
 	
-	for (snake = max_list, counter = 0; snake != NULL; snake = snake->next, counter++) {
-		snprintf(path, STRING_LENGTH, "%s%s", CPU_TEMP_DIR, snake->filename);
-		
-		if (!(fd = fopen(path, "r")))
-			INIT_ERR("error opening file in get_temp_max", -1)
-		if (!fscanf(fd, "%d", &max))
-			INIT_ERR("error reading value in get_temp_max", -1)
-		if (fclose(fd) < 0)
-			INIT_ERR("error closing file in get_temp_max", -1)
-		total += max;
-	}
-	
-	free_list(max_list);
-	return total / counter;
+	free_list(list);
+	return total / count;
 }
 
 static int
@@ -1773,21 +1682,23 @@ get_cpu_ratio(void)
 	
 	fd = fopen("/proc/cpuinfo", "r");
 	if (!fd)
-		INIT_ERR("error opening file in get_cpu_ratio", -1)
+		INIT_ERR("error opening file in get_cpu_ratio()", -1)
 	while (fgets(line, 256, fd) != NULL && strncmp(line, "cpu cores", 9));
+	if (line == NULL)
+		INIT_ERR("error finding line in get_cpu_ratio()", -1)
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_cpu_ratio", -1)
+		INIT_ERR("error closing file in get_cpu_ratio()", -1)
 			
 	token = strtok(line, ":");
 	if (token == NULL)
-		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio", -1)
+		INIT_ERR("error parsing /proc/cpuinfo in get_cpu_ratio()", -1)
 	token = strtok(NULL, ":");
 	if (token == NULL)
-		INIT_ERR("error parsing /proc/cpuinfo to get cpu ratio", -1)
+		INIT_ERR("error parsing /proc/cpuinfo in get_cpu_ratio()", -1)
 	
 	cores = atoi(token);
 	if ((threads = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
-		INIT_ERR("error getting threads in get_cpu_ratio", -1)
+		INIT_ERR("error getting threads in get_cpu_ratio()", -1)
 	
 	return threads / cores;
 }
@@ -1795,32 +1706,34 @@ get_cpu_ratio(void)
 static int
 get_font(char *font)
 {
+	// TODO strncmp() in while() loop should handle commented out lines
 	FILE *fd;
 	char line[256];
 	char *token;
 	
 	if (!(fd = fopen(DWM_CONFIG_FILE, "r")))
-		INIT_ERR("error opening file in get_font", -1)
-	while (fgets(line, STRING_LENGTH, fd) != NULL && strncmp(line, "static const char font[]", 24));
+		INIT_ERR("error opening file in get_font()", -1)
+	while (fgets(line, STRING_LENGTH, fd) != NULL && strncmp(line, "static const char font", 22));
 	if (line == NULL)
 		INIT_ERR("no font found in config file", -1)
 	if (fclose(fd) < 0)
-		INIT_ERR("error closing file in get_font", -1)
+		INIT_ERR("error closing file in get_font()", -1)
 			
 	token = strtok(line, "=");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font", -1)
+		INIT_ERR("error parsing dwm config in get_font()", -1)
 	token = strtok(NULL, "=");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font", -1)
+		INIT_ERR("error parsing dwm config in get_font()", -1)
 			
 	while (*token != '"') token++;
 	token++;
 	token = strtok(token, "\"");
 	if (token == NULL)
-		INIT_ERR("error parsing dwm config to get font", -1)
+		INIT_ERR("error parsing dwm config in get_font()", -1)
 			
-	memcpy(font, token, strlen(token));
+	if (memcpy(font, token, strlen(token)) == NULL)
+		INIT_ERR("error storing font in get_font()", -1)
 	
 	return 0;
 }
@@ -1828,7 +1741,7 @@ get_font(char *font)
 static int
 get_bar_max_len(Display *dpy)
 {
-	int width_p, width_c;
+	int width_d, width_c;
 	char *fontname;
 	char **miss_list, *def;
 	int count;
@@ -1836,7 +1749,7 @@ get_bar_max_len(Display *dpy)
 	XFontStruct *xfont;
 	XRectangle rect;
 	
-	width_p = DisplayWidth(dpy, DefaultScreen(dpy));
+	width_d = DisplayWidth(dpy, DefaultScreen(dpy));
 	fontname = malloc(256);
 	if (fontname == NULL)
 		INIT_ERR("error allocating memory for fontname", -1)
@@ -1855,7 +1768,7 @@ get_bar_max_len(Display *dpy)
 	}
 	
 	free(fontname);
-	return (width_p / width_c) - 2;
+	return (width_d / width_c) - 2;
 }
 
 static int
@@ -1887,11 +1800,11 @@ get_consts(Display *dpy)
 		INIT_ERR("error calculating max bar length", -1)
 	if ((cpu_ratio = get_cpu_ratio()) < 0 )
 		INIT_ERR("error calculating cpu ratio", -1)
-	if ((temp_max = get_temp_max()) < 0 )
+	if ((temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 )
 		INIT_ERR("error getting max temp", -1)
-	if ((fan_min = get_fan_min()) < 0 )
+	if ((fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 )
 		INIT_ERR("error getting min fan speed", -1)
-	if ((fan_max = get_fan_max()) < 0 )
+	if ((fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 )
 		INIT_ERR("error getting max fan speed", -1)
 	if ((screen_brightness_max = get_screen_brightness_max()) < 0 )
 		INIT_ERR("error getting max screen brightness", -1)
@@ -1904,32 +1817,42 @@ get_consts(Display *dpy)
 }
 
 static int
+populate_lists(void)
+{
+	if ((therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input")) == NULL)
+		INIT_ERR("error opening temperature directory", -1)
+	if ((fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input")) == NULL)
+		INIT_ERR("error opening fan speed directory", -1)
+	
+	return 0;
+}
+
+static int
 init(Display *dpy, Window root)
 {
 	time_t curr_time;
 	
-	if ((temp_list = populate_temp_list(temp_list, "input")) == NULL)
-		INIT_ERR("error opening temperature directory", -1)
 	populate_tm_struct();
+	if (populate_lists() < 0)
+		INIT_ERR("error populating lists", -1)
 	if (get_consts(dpy) < 0)
 		INIT_ERR("error intializing constants", -1)
-	make_urls();
 	
+	get_log();
 	get_TODO();
-	get_log_status();
 	get_weather();
-	get_backup_status();
-	get_portfolio_value();
-	get_wifi_status();
+	get_backup();
+	get_portfolio();
+	get_wifi();
 	get_time();
 	
-	get_network_usage();
-	get_disk_usage();
-	get_memory();
-	get_cpu_load();
+	get_network();
+	get_disk();
+	get_RAM();
+	get_load();
 	get_cpu_usage();
 	get_cpu_temp();
-	get_fan_speed();
+	get_fan();
 	
 	get_brightness();
 	get_volume();
@@ -1954,17 +1877,25 @@ main(void)
 	root = RootWindow(dpy, screen);
 	
 	if (init(dpy, root) < 0)
-		strncpy(statusbar_string, "Initialization failed. Check log for details.", STRING_LENGTH);
+		strncpy(statusbar_string,
+				"Initialization failed. Check log for details.",
+				STRING_LENGTH - 1);
 	else {
 		switch (loop(dpy, root)) {
 			case 1:
-				strncpy(statusbar_string, "Error getting weather. Loop broken. Check log for details.", STRING_LENGTH);
+				strncpy(statusbar_string,
+						"Error getting weather. Loop broken. Check log for details.",
+						STRING_LENGTH - 1);
 				break;
 			case 2:
-				strncpy(statusbar_string, "Error getting WiFi info. Loop broken. Check log for details.", STRING_LENGTH);
+				strncpy(statusbar_string,
+						"Error getting WiFi info. Loop broken. Check log for details.",
+						STRING_LENGTH - 1);
 				break;
 			default:
-				strncpy(statusbar_string, "Loop broken. Check log for details.", STRING_LENGTH);
+				strncpy(statusbar_string,
+						"Loop broken. Check log for details.",
+						STRING_LENGTH - 1);
 				break;
 		}
 	}

@@ -29,6 +29,13 @@
 #include <alsa/asoundlib.h>
 #include <math.h>
 
+#define STRING_LENGTH			128
+#define BAR_LENGTH				512
+#define TOTAL_LENGTH			1024
+#define UTC_TO_CST_SECONDS		18000
+#define HOUR					0
+#define DAY						1
+
 #define COLOR_NORMAL				color1
 #define COLOR_ACTIVE				color2
 #define COLOR1						color3
@@ -39,24 +46,28 @@
 #define RED_TEXT					color8
 #define COLOR_HEADING				COLOR_ACTIVE
 
-#define TODO_MAX_LEN				100
-#define WIFI_INTERFACE				"wlp4s0"
+#define WIFI_INTERFACE				"wlp4s0"	// TODO get from /proc/net/arp?
 #define DISPLAY_KBD					true
 
 #define TODO_FILE					"/home/user/.TODO"
 #define STATUSBAR_LOG_FILE			"/home/user/.logs/dwm-statusbar.log"
 #define DWM_LOG_FILE				"/home/user/.logs/dwm.log"
 #define BACKUP_STATUS_FILE			"/home/user/.backup/.sb"
+
 #define LOCATION					"0000000"
 #define KEY							"00000000000000000000000000000000"
+#define WEATHER_URL					"http://api.openweathermap.org/data/2.5/weather?id=" \
+									LOCATION "&appid=" KEY "&units=imperial"
+#define FORECAST_URL				"http://api.openweathermap.org/data/2.5/forecast?id=" \
+									LOCATION "&appid=" KEY "&units=imperial"
 #define RH_LOGIN					"username={username}&password={password}
 
 #define DWM_CONFIG_FILE				"/home/user/.dwm/config.h"
-#define NET_RX_FILE					NET_CAT(WIFI_INTERFACE, rx)
-#define NET_TX_FILE					NET_CAT(WIFI_INTERFACE, tx)
+#define NET_RX_FILE					"/sys/class/net/" WIFI_INTERFACE "/statistics/rx_bytes"
+#define NET_TX_FILE					"/sys/class/net/" WIFI_INTERFACE "/statistics/tx_bytes"
 #define CPU_USAGE_FILE				"/proc/stat"
 #define CPU_TEMP_DIR				"/sys/class/hwmon/hwmon0/"
-#define FAN_SPEED_FILE				"/sys/class/hwmon/hwmon2/device/fan1_input"
+#define FAN_SPEED_DIR				"/sys/class/hwmon/hwmon2/device/"
 #define SCREEN_BRIGHTNESS_FILE		"/sys/class/backlight/nvidia_backlight/brightness"
 #define KBD_BRIGHTNESS_FILE			"/sys/class/leds/smc::kbd_backlight/brightness"
 #define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
@@ -87,13 +98,7 @@
 	{ snd_mixer_close(handle); \
 	handle = NULL; \
 	snd_config_update_free_global(); \
-	fprintf(stderr, "%s%s\n", asctime(tm_struct), val); \
-	perror("Error"); \
-	printf("\n"); \
-	return -1; }
-
-#define CAT_5(A, B, C, D, E) #A B #C #D #E
-#define NET_CAT(X, Y) CAT_5(/sys/class/net/, X, /statistics/, Y, _bytes)
+	INIT_ERR(val, -1) }
 
 struct json_struct {
 	char *data;
@@ -108,11 +113,10 @@ struct disk_usage_struct {
 	char unit_total;
 } root_fs;
 
-
-struct cpu_temp_link {
+struct file_link {
 	char *filename;
-	struct cpu_temp_link *next;
-} *temp_list = NULL;
+	struct file_link *next;
+} *therm_list = NULL, *fan_list = NULL;
 
 const char color1 = '';
 const char color2 = '';
@@ -123,18 +127,21 @@ const char color6 = '';
 const char color7 = '';
 const char color8 = '';
 
+int bar_max_len;
 long TODO_mtime = 0;
-char weather_url[128];
-char forecast_url[128];
+char weather_url[STRING_LENGTH];
+char forecast_url[STRING_LENGTH];
 int day_safe;				// due to cJSON's not being thread-safe
 int temp_today;
-bool weather_update = true;
+bool need_to_get_weather = true;
 long backup_mtime = 0;
 bool equity_found = false;
-bool portfolio_init = false;
-char portfolio_url[128];
-char token_header[64];
-char account_number[32];
+bool portfolio_consts_found = false;
+char portfolio_url[STRING_LENGTH];
+char token_header[STRING_LENGTH];
+char account_number[STRING_LENGTH];
+bool need_equity_previous_close = true;
+int day_equity_previous_close;
 float equity_previous_close = 0.0;
 struct curl_slist *headers = NULL;
 bool wifi_connected = false;
@@ -149,27 +156,26 @@ int screen_brightness_max;
 int kbd_brightness_max;
 float vol_range;
 
-char statusbar_string[1024];
-char top_bar[512];
-char bottom_bar[512];
-int bar_max_len;
+char statusbar_string[TOTAL_LENGTH];
+char top_bar[BAR_LENGTH];
+char bottom_bar[BAR_LENGTH];
 
-char TODO_string[128];
-char log_status_string[32];
-char weather_string[96];
-char backup_status_string[32];
-char portfolio_value_string[32];
-char wifi_status_string[32];
-char time_string[32];
+char TODO_string[STRING_LENGTH];
+char log_string[STRING_LENGTH];
+char weather_string[STRING_LENGTH];
+char backup_string[STRING_LENGTH];
+char portfolio_string[STRING_LENGTH];
+char wifi_string[STRING_LENGTH];
+char time_string[STRING_LENGTH];
 
-char network_usage_string[64];
-char disk_usage_string[64];
-char memory_string[32];
-char cpu_load_string[32];
-char cpu_usage_string[32];
-char cpu_temp_string[32];
-char fan_speed_string[32];
+char network_string[STRING_LENGTH];
+char disk_string[STRING_LENGTH];
+char RAM_string[STRING_LENGTH];
+char load_string[STRING_LENGTH];
+char CPU_usage_string[STRING_LENGTH];
+char CPU_temp_string[STRING_LENGTH];
+char fan_string[STRING_LENGTH];
 
-char brightness_string[32];
-char volume_string[32];
-char battery_string[32];
+char brightness_string[STRING_LENGTH];
+char volume_string[STRING_LENGTH];
+char battery_string[STRING_LENGTH];
