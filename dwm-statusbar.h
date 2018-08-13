@@ -53,7 +53,6 @@
 #define STATUSBAR_LOG_FILE			"/home/user/.logs/dwm-statusbar.log"
 #define DWM_LOG_FILE				"/home/user/.logs/dwm.log"
 #define BACKUP_STATUS_FILE			"/home/user/.backup/.sb"
-
 #define LOCATION					"0000000"
 #define KEY							"00000000000000000000000000000000"
 #define WEATHER_URL					"http://api.openweathermap.org/data/2.5/weather?id=" \
@@ -61,7 +60,6 @@
 #define FORECAST_URL				"http://api.openweathermap.org/data/2.5/forecast?id=" \
 									LOCATION "&appid=" KEY "&units=imperial"
 #define RH_LOGIN					"username={username}&password={password}
-
 #define DWM_CONFIG_FILE				"/home/user/.dwm/config.h"
 #define NET_RX_FILE					"/sys/class/net/" WIFI_INTERFACE "/statistics/rx_bytes"
 #define NET_TX_FILE					"/sys/class/net/" WIFI_INTERFACE "/statistics/tx_bytes"
@@ -73,31 +71,18 @@
 #define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
 #define BATT_CAPACITY_FILE			"/sys/class/power_supply/BAT0/capacity"
 
-#define ERR(str, val) \
-	{ snprintf(str, sizeof(str) - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
-	str[sizeof(str) - 1] = '\0'; \
-	fprintf(stderr, "%s\t%s\n\n", asctime(tm_struct), val); \
-	return -1; }
+#define CONST_ERR(val) \
+	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+	perror("\tError"); }
 
 #define INIT_ERR(val, ret) \
 	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); \
-	printf("\n"); \
 	return ret; }
 
-#define SND_ERR(val) \
-	{ snd_mixer_close(handle); \
-	handle = NULL; \
-	snd_config_update_free_global(); \
-	snprintf(volume_string, sizeof(volume_string) - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
-	volume_string[sizeof(volume_string) - 1] = '\0'; \
-	fprintf(stderr, "%s%s\n\n", asctime(tm_struct), val); \
-	return -1; }
-
-#define SND_INIT_ERR(val) \
-	{ snd_mixer_close(handle); \
-	handle = NULL; \
-	snd_config_update_free_global(); \
+#define ERR(str, val) \
+	{ snprintf(str, sizeof(str) - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
+	str[sizeof(str) - 1] = '\0'; \
 	INIT_ERR(val, -1) }
 
 struct json_struct {
@@ -127,7 +112,15 @@ const char color6 = '';
 const char color7 = '';
 const char color8 = '';
 
-int bar_max_len;
+// singletons
+CURL *curl;
+struct nl_sock *sb_socket;
+int sb_id;
+struct nl_msg *sb_msg;
+struct nl_cb *sb_cb;
+struct rtnl_handle sb_rth;
+snd_mixer_elem_t *snd_elem;
+
 long TODO_mtime = 0;
 char weather_url[STRING_LENGTH];
 char forecast_url[STRING_LENGTH];
@@ -145,16 +138,18 @@ int day_equity_previous_close;
 float equity_previous_close = 0.0;
 struct curl_slist *headers = NULL;
 bool wifi_connected = false;
-int devidx;
 struct tm *tm_struct = NULL;
-int block_size;
-int cpu_ratio;
-int temp_max;
-int fan_min;
-int fan_max;
-int screen_brightness_max;
-int kbd_brightness_max;
-float vol_range;
+
+int const_devidx;
+int const_block_size;
+int const_bar_max_len;
+int const_cpu_ratio;
+int const_temp_max;
+int const_fan_min;
+int const_fan_max;
+int const_screen_brightness_max;
+int const_kbd_brightness_max;
+float const_vol_range;
 
 char statusbar_string[TOTAL_LENGTH];
 char top_bar[BAR_LENGTH];

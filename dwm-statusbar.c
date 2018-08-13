@@ -5,8 +5,11 @@ center_bottom_bar(char *bottom_bar)
 {
 	int half;
 	
-	if (strlen(bottom_bar) < bar_max_len) {
-		half = (bar_max_len - strlen(bottom_bar)) / 2;
+	if ( const_bar_max_len < 0 )
+		ERR(bottom_bar, "Cannot find bar_max_len. Please fix issue and restart program,")
+	
+	if (strlen(bottom_bar) < const_bar_max_len) {
+		half = (const_bar_max_len - strlen(bottom_bar)) / 2;
 		memmove(bottom_bar + half, bottom_bar, strlen(bottom_bar));
 		memset(bottom_bar, ' ', half - 1);
 	} else
@@ -22,7 +25,10 @@ trunc_TODO_string(void)
 	const char *top_strings[5] = {weather_string, backup_string, portfolio_string,
 		wifi_string, time_string};
 	
-	len_avail = bar_max_len - 32; // 32 for tags on left side
+	if (const_bar_max_len < 0)
+		return -1;
+	
+	len_avail = const_bar_max_len - 32; // 32 for tags on left side
 	for (i = 0; i < 5; i++)
 		len_avail -= strlen(top_strings[i]);
 	
@@ -225,7 +231,7 @@ parse_forecast_json(char *raw_json)
 	}
 	
 	for (i = 0; i < 4; i++) {
-		snprintf(tmp_str, 16, "%c%s(%2d/%2d)",
+		snprintf(tmp_str, 16, "%c %s(%2d/%2d)",
 				data[i].precipitation >= 3 ? COLOR_WARNING : COLOR_NORMAL,
 				i > 0 ? days_of_week[day_safe + i - 1] : "",
 				data[i].high, data[i].low);
@@ -311,18 +317,13 @@ get_weather(void)
 	if (wifi_connected == false)
 		return -2;
 	
-	CURL *curl;
 	int i;
 	struct json_struct json_structs[2];
 	static const char *urls[2] = { WEATHER_URL, FORECAST_URL };
 	
+	curl_easy_reset(curl);
 	day_safe = tm_struct->tm_wday;
 	
-	if (curl_global_init(CURL_GLOBAL_ALL))
-		ERR(weather_string, "Error curl_global_init(). Please fix issue and restart.")
-	if (!(curl = curl_easy_init()))
-		ERR(weather_string, "Error curl_easy_init(). Please fix issue and restart.")
-			
 	for (i = 0; i < 2; i++) {
 		json_structs[i].data = malloc(1);
 		if (json_structs[i].data == NULL)
@@ -345,12 +346,10 @@ get_weather(void)
 			need_to_get_weather = false;
 		} else
 			break;
+		
+		free(json_structs[i].data);
 	}
 	
-	free(json_structs[0].data);
-	free(json_structs[1].data);
-	curl_easy_cleanup(curl);
-	curl_global_cleanup();
 	return 0;
 }
 
@@ -541,21 +540,17 @@ get_portfolio(void)
 	sprintf(portfolio_string, "%crobinhood:%cN/A",
 			COLOR_HEADING, COLOR_NORMAL);
 			
-	CURL *curl;
 	struct json_struct portfolio_jstruct;
 	static double equity;
 	char equity_string[16];
+	
+	curl_easy_reset(curl);
 	
 	portfolio_jstruct.data = malloc(1);
 	if (portfolio_jstruct.data == NULL)
 		ERR(portfolio_string, "Out of memory");
 	portfolio_jstruct.size = 0;
 	
-	if (curl_global_init(CURL_GLOBAL_ALL))
-		ERR(portfolio_string, "Error curl_global_init()")
-	if (!(curl = curl_easy_init()))
-		ERR(portfolio_string, "Error curl_easy_init()")
-			
 	if (curl_easy_setopt(curl, CURLOPT_URL, portfolio_url) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
 			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
@@ -573,8 +568,6 @@ get_portfolio(void)
 	}
 			
 	free(portfolio_jstruct.data);
-	curl_easy_cleanup(curl);
-	curl_global_cleanup();
 	return 0;
 }
 
@@ -669,7 +662,6 @@ static int
 ip_check(int flag)
 {
 	// stolen from iproute2
-	struct rtnl_handle rth;
 	struct nlmsg_list *linfo = NULL;
 	struct nlmsg_list *head = NULL;
 	
@@ -678,16 +670,13 @@ ip_check(int flag)
 	int len;
 	int rv;
 	
-	if (rtnl_open(&rth, 0) < 0)
-		ERR(wifi_string, "error: rtnl_open")
-	if (rtnl_wilddump_request(&rth, AF_PACKET, RTM_GETLINK) < 0)
+	if (rtnl_wilddump_request(&sb_rth, AF_PACKET, RTM_GETLINK) < 0)
 		ERR(wifi_string, "error: rtnl_wilddump_request")
-	if (rtnl_dump_filter(&rth, store_nlmsg, &linfo) < 0)
+	if (rtnl_dump_filter(&sb_rth, store_nlmsg, &linfo) < 0)
 		ERR(wifi_string, "error: rtnl_dump_filter")
-	rtnl_close(&rth);
 	
 	head = linfo;
-	for (int i = 1; i < devidx; i++, linfo = linfo->next);
+	for (int i = 1; i < const_devidx; i++, linfo = linfo->next);
 	ifi = NLMSG_DATA(&linfo->h);
 	if (!ifi)
 		ERR(wifi_string, "error accessing ifi")
@@ -709,15 +698,13 @@ ip_check(int flag)
 static int
 get_wifi(void)
 {
-	struct nl_sock *socket;
-	int id;
-	struct nl_msg *msg;
-	struct nl_cb *cb;
-	
 	int ifi_flag;
 	int op_state;
 	char color = COLOR2;
 	char *ssid_string;
+	
+	if (const_devidx < 0)
+		ERR(wifi_string, "Error finding device ID")
 	
 	ifi_flag = ip_check(0);
 	if (ifi_flag == -1) return -1;
@@ -747,29 +734,13 @@ get_wifi(void)
 		if (!memset(ssid_string, '\0', STRING_LENGTH))
 			ERR(wifi_string, "Error resetting ssid_string")
 	
-		socket = nl_socket_alloc();
-		if (!socket)
-			ERR(wifi_string, "err: nl_socket_alloc()")
-		if (genl_connect(socket) < 0)
-			ERR(wifi_string, "err: genl_connect()")
-		id = genl_ctrl_resolve(socket, "nl80211");
-		if (!id)
-			ERR(wifi_string, "err: genl_ctrl_resolve()")
-		
-		msg = nlmsg_alloc();
-		if (!msg)
-			ERR(wifi_string, "err: nlmsg_alloc()")
-		cb = nl_cb_alloc(NL_CB_DEFAULT);
-		if (!cb)
-			ERR(wifi_string, "err: nl_cb_alloc()")
-		
-		genlmsg_put(msg, 0, 0, id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
-		if (nla_put(msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &devidx) < 0)
+		genlmsg_put(sb_msg, 0, 0, sb_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
+		if (nla_put(sb_msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &const_devidx) < 0)
 			ERR(wifi_string, "err: nla_put()")
-		nl_send_auto_complete(socket, msg);
-		if (nl_cb_set(cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
+		nl_send_auto_complete(sb_socket, sb_msg);
+		if (nl_cb_set(sb_cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
 			ERR(wifi_string, "err: nla_cb_set()")
-		if (nl_recvmsgs(socket, cb) < 0)
+		if (nl_recvmsgs(sb_socket, sb_cb) < 0)
 			strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
 		else
 			color = COLOR1;
@@ -778,9 +749,6 @@ get_wifi(void)
 
 		wifi_connected = true;
 		free(ssid_string);
-		nlmsg_free(msg);
-		nl_socket_free(socket);
-		free(cb);
 	} else
 		ERR(wifi_string, "Error with WiFi Status")
 	
@@ -886,8 +854,8 @@ process_stat(struct disk_usage_struct *dus)
 	float bytes_used;
 	float bytes_total;
 	
-	bytes_used = (float)(dus->fs_stat.f_blocks - dus->fs_stat.f_bfree) * block_size;
-	bytes_total = (float)dus->fs_stat.f_blocks *  block_size;
+	bytes_used = (float)(dus->fs_stat.f_blocks - dus->fs_stat.f_bfree) * const_block_size;
+	bytes_total = (float)dus->fs_stat.f_blocks *  const_block_size;
 	
 	while (bytes_used > 1 << 10) {
 		bytes_used /= 1024;
@@ -912,6 +880,9 @@ get_disk(void)
 {
 	if (!memset(disk_string, '\0', STRING_LENGTH))
 		ERR(disk_string, "Error resetting disk_string")
+	
+	if (const_block_size < 0)
+		ERR(disk_string, "   disk: err blksz  ")
 	
 	int rootperc;
 
@@ -988,6 +959,9 @@ get_cpu_usage(void)
 		int old[7];
 		int new[7];
 	} cpu;
+	
+	if (const_cpu_ratio < 0)
+		const_cpu_ratio = 1;
 
 	fd = fopen(CPU_USAGE_FILE, "r");
 	if (!fd)
@@ -1023,7 +997,7 @@ get_cpu_usage(void)
 		total_diff = total_new - total_old + 1;
 		
 		total = rint((double)working_diff / (double)total_diff * 100);
-		total *= cpu_ratio;
+		total *= const_cpu_ratio;
 	}
 	
 	for (i = 0; i < 7; i++)
@@ -1083,13 +1057,19 @@ get_cpu_temp(void)
 		ERR(CPU_temp_string, "Error traversing list in get_cpu_temp()")
 	
 	temp = total / count;
-	tempperc = rint((double)temp / (double)temp_max * 100);
-	temp >>= 10;
 	
-	snprintf(CPU_temp_string, STRING_LENGTH, " %c CPU temp:%c%2d degC%c ",
-			tempperc >= 75? COLOR_WARNING : COLOR_HEADING,
-			tempperc >= 75? COLOR_WARNING : COLOR_NORMAL,
-			temp, COLOR_NORMAL);
+	if (const_temp_max < 0) {
+		snprintf(CPU_temp_string, STRING_LENGTH, " %c CPU temp:%c error %c ",
+				COLOR_HEADING,COLOR_WARNING, COLOR_NORMAL);
+	} else {
+		tempperc = rint((double)temp / (double)const_temp_max * 100);
+		temp >>= 10;
+		
+		snprintf(CPU_temp_string, STRING_LENGTH, " %c CPU temp:%c%2d degC%c ",
+				tempperc >= 75? COLOR_WARNING : COLOR_HEADING,
+				tempperc >= 75? COLOR_WARNING : COLOR_NORMAL,
+				temp, COLOR_NORMAL);
+	}
 
 	return 0;
 }
@@ -1104,13 +1084,18 @@ get_fan(void)
 	
 	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count) < 0)
 		ERR(fan_string, "Error traversing list in get_fan()")
+			
+	if (const_fan_min < 0 || const_fan_max < 0) {
+		snprintf(fan_string, STRING_LENGTH, " %c fan: err%c ", COLOR_ERROR, COLOR_NORMAL);
+		return -1;
+	}
 	
 	rpm /= count;
-	rpm -= fan_min;
+	rpm -= const_fan_min;
 	if (rpm <= 0)
 		rpm = 0;
 	
-	fanperc = rint((double)rpm / (double)fan_max * 100);
+	fanperc = rint((double)rpm / (double)const_fan_max * 100);
 	
 	if (fanperc >= 100)
 		snprintf(fan_string, STRING_LENGTH, " %c fan: MAX%c ", COLOR_ERROR, COLOR_NORMAL);
@@ -1129,6 +1114,12 @@ get_brightness(void)
 	if (!memset(brightness_string, '\0', STRING_LENGTH))
 		ERR(brightness_string, "Error resetting brightness_string")
 			
+	if (const_screen_brightness_max < 0 || const_kbd_brightness_max < 0) {
+		snprintf(brightness_string, STRING_LENGTH, " %c brightness: error %c",
+			COLOR_ERROR, COLOR_NORMAL);
+		return -1;
+	}
+	
 	const char* b_files[2] = { SCREEN_BRIGHTNESS_FILE, KBD_BRIGHTNESS_FILE };
 	
 	int scrn, kbd;
@@ -1145,9 +1136,9 @@ get_brightness(void)
 			ERR(brightness_string, "Error File Close")
 	}
 	
-	scrn_perc = rint((double)scrn / (double)screen_brightness_max * 100);
+	scrn_perc = rint((double)scrn / (double)const_screen_brightness_max * 100);
 	if (DISPLAY_KBD)
-		kbd_perc = rint((double)kbd / (double)kbd_brightness_max * 100);
+		kbd_perc = rint((double)kbd / (double)const_kbd_brightness_max * 100);
 	
 	if (DISPLAY_KBD)
 		snprintf(brightness_string, STRING_LENGTH, " %c brightness:%c%3d%%, %3d%%%c ",
@@ -1165,49 +1156,28 @@ get_volume(void)
 	if (!memset(volume_string, '\0', STRING_LENGTH))
 		ERR(volume_string, "Error resetting volume_string")
 	
-	// stolen from amixer utility from alsa-utils
+	if (const_vol_range < 0)
+		ERR(volume_string, "volume: error")
+	
 	long pvol;
 	int swch, volperc;
 	
-	snd_mixer_t *handle = NULL;
-	snd_mixer_elem_t *elem;
-	snd_mixer_selem_id_t *sid;
-	
-	if (snd_mixer_open(&handle, 0))
-		SND_ERR("Error Open")
-	if (snd_mixer_attach(handle, "default"))
-		SND_ERR("Error Attch")
-	if (snd_mixer_selem_register(handle, NULL, NULL))
-		SND_ERR("Error Rgstr")
-	if (snd_mixer_load(handle))
-		SND_ERR("Error Load")
-	
-	snd_mixer_selem_id_alloca(&sid);
-	snd_mixer_selem_id_set_name(sid, "Master");
-	
-	if (!(elem = snd_mixer_find_selem(handle, sid)))
-		SND_ERR("Error Elem")
-	
-	if (snd_mixer_selem_get_playback_switch(elem, SND_MIXER_SCHN_MONO, &swch))
-		SND_ERR("Error Get S")
+	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
+		ERR(volume_string, "Error Get S")
 	if (!swch) {
 		snprintf(volume_string, STRING_LENGTH, " %c volume:%cmute%c ",
 				COLOR_HEADING, COLOR_NORMAL, COLOR_NORMAL);
 	} else {
-		if (snd_mixer_selem_get_playback_volume(elem, SND_MIXER_SCHN_MONO, &pvol))
-			SND_ERR("Error Get V")
+		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
+			ERR(volume_string, "Error Get V")
+				
 		// round to the nearest ten
-		volperc = (double)pvol / vol_range * 100;
+		volperc = (double)pvol / const_vol_range * 100;
 		volperc = rint((float)volperc / 10) * 10;
 		
 		snprintf(volume_string, STRING_LENGTH, " %c volume:%c%3d%%%c ",
 				COLOR_HEADING, COLOR_NORMAL, volperc, COLOR_NORMAL);
 	}
-	
-	if (snd_mixer_close(handle))
-		SND_ERR("Error Close")
-	handle = NULL;
-	snd_config_update_free_global();
 	
 	return 0;
 }
@@ -1288,18 +1258,14 @@ parse_account_number_json(char *raw_json)
 static int
 get_account_number(void)
 {
-	CURL *curl;
 	struct json_struct account_number_struct;
+	
+	curl_easy_reset(curl);
 	
 	account_number_struct.data = malloc(1);
 	if (account_number_struct.data == NULL)
 		INIT_ERR("error allocating account_number_struct.data", -1)
 	account_number_struct.size = 0;
-	
-	if (curl_global_init(CURL_GLOBAL_ALL))
-		INIT_ERR("error curl_global_init() in get_account_number()", -1)
-	if (!(curl = curl_easy_init()))
-		INIT_ERR("error curl_easy_init() in get_account_number()", -1)
 	
 	headers = curl_slist_append(headers, "Accept: application/json");
 	headers = curl_slist_append(headers, token_header);
@@ -1319,8 +1285,6 @@ get_account_number(void)
 		INIT_ERR("error parse_account_number_json() in get_account_number()", -1)
 	
 	free(account_number_struct.data);
-	curl_easy_cleanup(curl);
-	curl_global_cleanup();
 	return 0;
 }
 
@@ -1341,19 +1305,15 @@ parse_token_json(char *raw_json)
 static int
 get_token(void)
 {
-	CURL *curl;
 	struct json_struct token_struct;
 	struct curl_slist *header = NULL;
+	
+	curl_easy_reset(curl);
 	
 	token_struct.data = malloc(1);
 	if (token_struct.data == NULL)
 		INIT_ERR("error allocating token_struct.data", -1)
 	token_struct.size = 0;
-	
-	if (curl_global_init(CURL_GLOBAL_ALL))
-		INIT_ERR("error curl_global_init() in get_token()", -1)
-	if (!(curl = curl_easy_init()))
-		INIT_ERR("error curl_easy_init() in get_token()", -1)
 	
 	header = curl_slist_append(header, "Accept: application/json");
 	if (header == NULL)
@@ -1374,8 +1334,6 @@ get_token(void)
 	
 	free(token_struct.data);
 	curl_slist_free_all(header);
-	curl_easy_cleanup(curl);
-	curl_global_cleanup();
 	return 0;
 }
 
@@ -1469,36 +1427,9 @@ get_vol_range(void)
 {
 	long min, max;
 	
-	snd_mixer_t *handle = NULL;
-	snd_mixer_elem_t *elem;
-	snd_mixer_selem_id_t *sid;
-	
-	// stolen from amixer utility from alsa-utils
-    if ((snd_mixer_open(&handle, 0)) < 0)
-		SND_INIT_ERR("error opening volume handle")
-    if ((snd_mixer_attach(handle, "default")) < 0)
-		SND_INIT_ERR("error attaching volume handle")
-    if ((snd_mixer_selem_register(handle, NULL, NULL)) < 0)
-		SND_INIT_ERR("error registering volume handle")
-    if ((snd_mixer_load(handle)) < 0)
-		SND_INIT_ERR("error loading volume handle")
+	if (snd_mixer_selem_get_playback_volume_range(snd_elem, &min, &max))
+		INIT_ERR("error getting volume range", -1)
 		
-	snd_mixer_selem_id_alloca(&sid);
-    if (sid == NULL)
-		SND_INIT_ERR("error allocating memory for volume id")
-
-	snd_mixer_selem_id_set_name(sid, "Master");
-    if (!(elem = snd_mixer_find_selem(handle, sid)))
-		SND_INIT_ERR("error finding volume property")
-	
-	if (snd_mixer_selem_get_playback_volume_range(elem, &min, &max))
-		SND_INIT_ERR("error getting volume range")
-		
-	if (snd_mixer_close(handle))
-		SND_INIT_ERR("error closing volume handle")
-	handle = NULL;
-	snd_config_update_free_global();
-	
 	return max - min;
 }
 
@@ -1512,6 +1443,9 @@ get_kbd_brightness_max(void)
 	int count = 0;
 	FILE *fd;
 	int max;
+	
+	if (!DISPLAY_KBD)
+		return 0;
 	
 	strncpy(file_str, KBD_BRIGHTNESS_FILE, STRING_LENGTH - 1);
 	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
@@ -1792,26 +1726,26 @@ get_dev_id(void)
 static int
 get_consts(Display *dpy)
 {
-	if ((devidx = get_dev_id()) == 0 )
-		INIT_ERR("error getting device id", -1)
-	if ((block_size = get_block_size()) < 0 )
-		INIT_ERR("error getting block size", -1)
-	if ((bar_max_len = get_bar_max_len(dpy)) < 0 )
-		INIT_ERR("error calculating max bar length", -1)
-	if ((cpu_ratio = get_cpu_ratio()) < 0 )
-		INIT_ERR("error calculating cpu ratio", -1)
-	if ((temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 )
-		INIT_ERR("error getting max temp", -1)
-	if ((fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 )
-		INIT_ERR("error getting min fan speed", -1)
-	if ((fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 )
-		INIT_ERR("error getting max fan speed", -1)
-	if ((screen_brightness_max = get_screen_brightness_max()) < 0 )
-		INIT_ERR("error getting max screen brightness", -1)
-	if ((kbd_brightness_max = get_kbd_brightness_max()) < 0 )
-		INIT_ERR("error getting max keyboard brightness", -1)
-	if ((vol_range = get_vol_range()) < 0 )
-		INIT_ERR("error getting volume range", -1)
+	if ((const_devidx = get_dev_id()) == 0 )
+		CONST_ERR("error getting device id")
+	if ((const_block_size = get_block_size()) < 0 )
+		CONST_ERR("error getting block size")
+	if ((const_bar_max_len = get_bar_max_len(dpy)) < 0 )
+		CONST_ERR("error calculating max bar length")
+	if ((const_cpu_ratio = get_cpu_ratio()) < 0 )
+		CONST_ERR("error calculating cpu ratio")
+	if ((const_temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 )
+		CONST_ERR("error getting max temp")
+	if ((const_fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 )
+		CONST_ERR("error getting min fan speed")
+	if ((const_fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 )
+		CONST_ERR("error getting max fan speed")
+	if ((const_screen_brightness_max = get_screen_brightness_max()) < 0 )
+		CONST_ERR("error getting max screen brightness")
+	if ((const_kbd_brightness_max = get_kbd_brightness_max()) < 0 )
+		CONST_ERR("error getting max keyboard brightness")
+	if ((const_vol_range = get_vol_range()) < 0 )
+		CONST_ERR("error getting volume range")
 			
 	return 0;
 }
@@ -1828,11 +1762,100 @@ populate_lists(void)
 }
 
 static int
+make_vol_singleton(void)
+{
+	// stolen from amixer utility from alsa-utils
+	snd_mixer_t *handle = NULL;
+	snd_mixer_selem_id_t *sid;
+	
+	if (snd_mixer_open(&handle, 0))
+		INIT_ERR("Error Open", -1)
+	if (snd_mixer_attach(handle, "default"))
+		INIT_ERR("Error Attch", -1)
+	if (snd_mixer_selem_register(handle, NULL, NULL))
+		INIT_ERR("Error Rgstr", -1)
+	if (snd_mixer_load(handle))
+		INIT_ERR("Error Load", -1)
+	
+	snd_mixer_selem_id_alloca(&sid);
+	snd_mixer_selem_id_set_name(sid, "Master");
+	
+	if (!(snd_elem = snd_mixer_find_selem(handle, sid)))
+		INIT_ERR("Error snd_elem", -1)
+			
+	// if (snd_mixer_close(handle))
+		// INIT_ERR("Error Close", -1)
+	snd_config_update_free_global();
+	
+	return 0;
+}
+
+static int
+make_wifi_singleton(void)
+{
+	sb_socket = nl_socket_alloc();
+	if (!sb_socket)
+		ERR(wifi_string, "err: nl_socket_alloc()")
+	if (genl_connect(sb_socket) < 0)
+		ERR(wifi_string, "err: genl_connect()")
+			
+	sb_id = genl_ctrl_resolve(sb_socket, "nl80211");
+	if (!sb_id)
+		ERR(wifi_string, "err: genl_ctrl_resolve()")
+	
+	sb_msg = nlmsg_alloc();
+	if (!sb_msg)
+		ERR(wifi_string, "err: nlmsg_alloc()")
+			
+	sb_cb = nl_cb_alloc(NL_CB_DEFAULT);
+	if (!sb_cb)
+		ERR(wifi_string, "err: nl_cb_alloc()")
+			
+	if (rtnl_open(&sb_rth, 0) < 0)
+		ERR(wifi_string, "error: rtnl_open")
+			
+	// nlmsg_free(sb_msg);
+	// nl_socket_free(sb_socket);
+	// free(sb_cb);
+	// rtnl_close(&sb_rth);
+	
+	return 0;
+}
+
+static int
+make_curl_singleton(void)
+{
+	if (curl_global_init(CURL_GLOBAL_ALL))
+		ERR(weather_string, "Error curl_global_init(). Please fix issue and restart.")
+	if (!(curl = curl_easy_init()))
+		ERR(weather_string, "Error curl_easy_init(). Please fix issue and restart.")
+			
+	// curl_easy_cleanup(curl);
+	curl_global_cleanup();
+	return 0;
+}
+
+static int
+make_singletons(void)
+{
+	if (make_curl_singleton() < 0)
+		return -1;
+	if (make_wifi_singleton() < 0)
+		return -1;
+	if (make_vol_singleton() < 0)
+		return -1;
+	
+	return 0;
+}
+
+static int
 init(Display *dpy, Window root)
 {
 	time_t curr_time;
 	
 	populate_tm_struct();
+	if (make_singletons() < 0)
+		INIT_ERR("error making singleton", -1)
 	if (populate_lists() < 0)
 		INIT_ERR("error populating lists", -1)
 	if (get_consts(dpy) < 0)
