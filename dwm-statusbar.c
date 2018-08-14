@@ -3,6 +3,9 @@
 static int
 center_bottom_bar(char *bottom_bar)
 {
+	if (err_flags & 1 << BAR_FLAG)
+		return -1;
+	
 	int half;
 	
 	if ( const_bar_max_len < 0 )
@@ -21,6 +24,9 @@ center_bottom_bar(char *bottom_bar)
 static int
 trunc_TODO_string(void)
 {
+	if (err_flags & 1 << BAR_FLAG)
+		return -1;
+	
 	int len_avail, i;
 	const char *top_strings[5] = {weather_string, backup_string, portfolio_string,
 		wifi_string, time_string};
@@ -73,9 +79,9 @@ format_string(Display *dpy, Window root)
 	snprintf(statusbar_string, TOTAL_LENGTH, "%s;%s", top_bar, bottom_bar);
 	
 	if (!XStoreName(dpy, root, statusbar_string))
-		return -1;
+		INIT_ERR("error with XStoreName() in format_string()", -1)
 	if (!XFlush(dpy))
-		return -1;
+		INIT_ERR("error with XFlush() in format_string()", -1)
 	
 	return 0;
 }
@@ -83,6 +89,9 @@ format_string(Display *dpy, Window root)
 static int
 get_log(void)
 {
+	if (err_flags & 1 << LOG_FLAG)
+		return -1;
+	
 	struct stat sb_stat;
 	struct stat dwm_stat;
 
@@ -107,6 +116,9 @@ get_log(void)
 static int
 get_TODO(void)
 {
+	if (err_flags & 1 << TODO_FLAG)
+		return -1;
+	
 	// dumb function
 	struct stat file_stat;
 	FILE *fd;
@@ -310,6 +322,9 @@ curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
 static int
 get_weather(void)
 {
+	if (err_flags & 1 << WEATHER_FLAG)
+		return -1;
+	
 	if (!memset(weather_string, '\0', STRING_LENGTH))
 		ERR(weather_string, "Error resetting weather_string")
 			
@@ -321,7 +336,7 @@ get_weather(void)
 	struct json_struct json_structs[2];
 	static const char *urls[2] = { WEATHER_URL, FORECAST_URL };
 	
-	curl_easy_reset(curl);
+	curl_easy_reset(sb_curl);
 	day_safe = tm_struct->tm_wday;
 	
 	for (i = 0; i < 2; i++) {
@@ -330,12 +345,12 @@ get_weather(void)
 			ERR(weather_string, "Out of memory");
 		json_structs[i].size = 0;
 		
-		if (curl_easy_setopt(curl, CURLOPT_URL, urls[i]) != CURLE_OK ||
-				curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-				curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-				curl_easy_setopt(curl, CURLOPT_WRITEDATA, &json_structs[i]) != CURLE_OK)
+		if (curl_easy_setopt(sb_curl, CURLOPT_URL, urls[i]) != CURLE_OK ||
+				curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+				curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+				curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &json_structs[i]) != CURLE_OK)
 			ERR(weather_string, "Error curl_easy_setops() in get_weather(). Please fix issue and restart.")
-		if (curl_easy_perform(curl) == CURLE_OK) {
+		if (curl_easy_perform(sb_curl) == CURLE_OK) {
 			if (!i) {
 				if (parse_weather_json(json_structs[i].data) < 0)
 					ERR(weather_string, "Error parsing weather json. Please fix issue and restart.")
@@ -381,6 +396,9 @@ parse_error_code(int code, char *output, int len)
 static int
 get_backup(void)
 {
+	if (err_flags & 1 << BACKUP_FLAG)
+		return -1;
+	
 	struct stat file_stat;
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
 		ERR(backup_string, "Error Getting Backup File Stats")
@@ -528,6 +546,9 @@ run_or_skip(void)
 static int
 get_portfolio(void)
 {
+	if (err_flags & 1 << PORTFOLIO_FLAG)
+		return -1;
+	
 	switch (run_or_skip()) {
 		case 0: break;
 		case 1: return 0;
@@ -537,32 +558,32 @@ get_portfolio(void)
 	if (!memset(portfolio_string, '\0', STRING_LENGTH))
 		ERR(portfolio_string, "Error resetting portfolio_va...")
 			
-	sprintf(portfolio_string, "%crobinhood:%cN/A",
+	sprintf(portfolio_string, "%cportfolio:%cN/A",
 			COLOR_HEADING, COLOR_NORMAL);
 			
 	struct json_struct portfolio_jstruct;
 	static double equity;
 	char equity_string[16];
 	
-	curl_easy_reset(curl);
+	curl_easy_reset(sb_curl);
 	
 	portfolio_jstruct.data = malloc(1);
 	if (portfolio_jstruct.data == NULL)
 		ERR(portfolio_string, "Out of memory");
 	portfolio_jstruct.size = 0;
 	
-	if (curl_easy_setopt(curl, CURLOPT_URL, portfolio_url) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
+	if (curl_easy_setopt(sb_curl, CURLOPT_URL, portfolio_url) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
 		ERR(portfolio_string, "Error curl_easy_setops()")
-	if (curl_easy_perform(curl) == CURLE_OK) {
+	if (curl_easy_perform(sb_curl) == CURLE_OK) {
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
 			ERR(portfolio_string, "Error parsing portfolio json")
 		snprintf(equity_string, sizeof equity_string, "%.2lf", equity);
 		
-		sprintf(portfolio_string, "%crobinhood:%c%.2lf",
+		sprintf(portfolio_string, "%cportfolio:%c%.2lf",
 				COLOR_HEADING, equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
 		equity_found = true;
 	}
@@ -698,6 +719,9 @@ ip_check(int flag)
 static int
 get_wifi(void)
 {
+	if (err_flags & 1 << WIFI_FLAG)
+		return -1;
+	
 	int ifi_flag;
 	int op_state;
 	char color = COLOR2;
@@ -758,6 +782,9 @@ get_wifi(void)
 static int
 get_time(void)
 {
+	if (err_flags & 1 << TIME_FLAG)
+		return -1;
+	
 	if (!memset(time_string, '\0', STRING_LENGTH))
 		ERR(time_string, "Error resetting time_string")
 	
@@ -800,6 +827,9 @@ format_bytes(long *bytes, int *step)
 static int
 get_network(void)
 {
+	if (err_flags & 1 << NETWORK_FLAG)
+		return -1;
+	
 	if (!memset(network_string, '\0', STRING_LENGTH))
 		ERR(network_string, "Error resetting network_usage")
 	
@@ -878,6 +908,9 @@ process_stat(struct disk_usage_struct *dus)
 static int
 get_disk(void)
 {
+	if (err_flags & 1 << DISK_FLAG)
+		return -1;
+	
 	if (!memset(disk_string, '\0', STRING_LENGTH))
 		ERR(disk_string, "Error resetting disk_string")
 	
@@ -904,6 +937,9 @@ get_disk(void)
 static int
 get_RAM(void)
 {
+	if (err_flags & 1 << RAM_FLAG)
+		return -1;
+	
 	if (!memset(RAM_string, '\0', STRING_LENGTH))
 		ERR(RAM_string, "Error resetting RAM_string")
 	
@@ -926,6 +962,9 @@ get_RAM(void)
 static int
 get_load(void)
 {
+	if (err_flags & 1 << LOAD_FLAG)
+		return -1;
+	
 	if (!memset(load_string, '\0', STRING_LENGTH))
 		ERR(load_string, "Error resetting load_string")
 	
@@ -944,6 +983,9 @@ get_load(void)
 static int
 get_cpu_usage(void)
 {
+	if (err_flags & 1 << CPU_USAGE_FLAG)
+		return -1;
+	
 	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
 	if (!memset(CPU_usage_string, '\0', STRING_LENGTH))
 		ERR(CPU_usage_string, "Error resetting CPU_usage_string")
@@ -1048,6 +1090,9 @@ traverse_list(struct file_link *list, char *path, int *num, int *count)
 static int
 get_cpu_temp(void)
 {
+	if (err_flags & 1 << CPU_TEMP_FLAG)
+		return -1;
+	
 	if (!memset(CPU_temp_string, '\0', STRING_LENGTH))
 		ERR(CPU_temp_string, "Error resetting CPU_temp_string")
 			
@@ -1077,6 +1122,9 @@ get_cpu_temp(void)
 static int
 get_fan(void)
 {
+	if (err_flags & 1 << FAN_FLAG)
+		return -1;
+	
 	if (!memset(fan_string, '\0', STRING_LENGTH))
 		ERR(fan_string, "Error resetting fan_string")
 	
@@ -1111,6 +1159,9 @@ get_fan(void)
 static int
 get_brightness(void)
 {
+	if (err_flags & 1 << BRIGHTNESS_FLAG)
+		return -1;
+	
 	if (!memset(brightness_string, '\0', STRING_LENGTH))
 		ERR(brightness_string, "Error resetting brightness_string")
 			
@@ -1153,6 +1204,9 @@ get_brightness(void)
 static int
 get_volume(void)
 {
+	if (err_flags & 1 << VOLUME_FLAG)
+		return -1;
+	
 	if (!memset(volume_string, '\0', STRING_LENGTH))
 		ERR(volume_string, "Error resetting volume_string")
 	
@@ -1185,6 +1239,9 @@ get_volume(void)
 static int
 get_battery(void)
 {
+	if (err_flags & 1 << BATTERY_FLAG)
+		return -1;
+	
 	if (!memset(battery_string, '\0', STRING_LENGTH))
 		ERR(battery_string, "Error resetting battery_string")
 	/* from acpi.c and other acpi source files */
@@ -1258,9 +1315,12 @@ parse_account_number_json(char *raw_json)
 static int
 get_account_number(void)
 {
+	if (err_flags & 1 << PORTFOLIO_FLAG)
+		return -1;
+	
 	struct json_struct account_number_struct;
 	
-	curl_easy_reset(curl);
+	curl_easy_reset(sb_curl);
 	
 	account_number_struct.data = malloc(1);
 	if (account_number_struct.data == NULL)
@@ -1272,13 +1332,13 @@ get_account_number(void)
 	if (headers == NULL)
 		INIT_ERR("error curl_slist_append() in get_account_number()", -1)
 			
-	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/accounts/") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
+	if (curl_easy_setopt(sb_curl, CURLOPT_URL, "https://api.robinhood.com/accounts/") != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
 		INIT_ERR("error curl_easy_setopt() in get_account_number()", -1)
-	if (curl_easy_perform(curl) != CURLE_OK)
+	if (curl_easy_perform(sb_curl) != CURLE_OK)
 		INIT_ERR("error curl_easy_perform() in get_account_number()", -1)
 		
 	if (parse_account_number_json(account_number_struct.data) < 0)
@@ -1305,10 +1365,13 @@ parse_token_json(char *raw_json)
 static int
 get_token(void)
 {
+	if (err_flags & 1 << WIFI_FLAG)
+		return -1;
+	
 	struct json_struct token_struct;
 	struct curl_slist *header = NULL;
 	
-	curl_easy_reset(curl);
+	curl_easy_reset(sb_curl);
 	
 	token_struct.data = malloc(1);
 	if (token_struct.data == NULL)
@@ -1319,14 +1382,14 @@ get_token(void)
 	if (header == NULL)
 		INIT_ERR("error curl_slist_append() in get_token()", -1)
 			
-	if (curl_easy_setopt(curl, CURLOPT_URL, "https://api.robinhood.com/api-token-auth/") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, RH_LOGIN) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
+	if (curl_easy_setopt(sb_curl, CURLOPT_URL, "https://api.robinhood.com/api-token-auth/") != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_HTTPHEADER, header) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_POSTFIELDS, RH_LOGIN) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
+			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
 		INIT_ERR("error curl_easy_setopt() in get_token()", -1)
-	if (curl_easy_perform(curl) != CURLE_OK)
+	if (curl_easy_perform(sb_curl) != CURLE_OK)
 		INIT_ERR("error curl_easy_perform() in get_token()", -1)
 		
 	if (parse_token_json(token_struct.data) < 0)
@@ -1340,6 +1403,9 @@ get_token(void)
 static int
 init_portfolio()
 {
+	if (err_flags & 1 << PORTFOLIO_FLAG)
+		return -1;
+	
 	if (get_token() < 0)
 		return -1;
 	if (get_account_number() < 0)
@@ -1436,6 +1502,9 @@ get_vol_range(void)
 static int
 get_kbd_brightness_max(void)
 {
+	if (!DISPLAY_KBD)
+		return 0;
+	
 	char file_str[STRING_LENGTH];
 	char dir_str[STRING_LENGTH];
 	DIR *dir;
@@ -1443,9 +1512,6 @@ get_kbd_brightness_max(void)
 	int count = 0;
 	FILE *fd;
 	int max;
-	
-	if (!DISPLAY_KBD)
-		return 0;
 	
 	strncpy(file_str, KBD_BRIGHTNESS_FILE, STRING_LENGTH - 1);
 	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
@@ -1726,39 +1792,78 @@ get_dev_id(void)
 static int
 get_consts(Display *dpy)
 {
-	if ((const_devidx = get_dev_id()) == 0 )
-		CONST_ERR("error getting device id")
-	if ((const_block_size = get_block_size()) < 0 )
-		CONST_ERR("error getting block size")
-	if ((const_bar_max_len = get_bar_max_len(dpy)) < 0 )
-		CONST_ERR("error calculating max bar length")
-	if ((const_cpu_ratio = get_cpu_ratio()) < 0 )
-		CONST_ERR("error calculating cpu ratio")
-	if ((const_temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 )
-		CONST_ERR("error getting max temp")
-	if ((const_fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 )
-		CONST_ERR("error getting min fan speed")
-	if ((const_fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 )
-		CONST_ERR("error getting max fan speed")
-	if ((const_screen_brightness_max = get_screen_brightness_max()) < 0 )
-		CONST_ERR("error getting max screen brightness")
-	if ((const_kbd_brightness_max = get_kbd_brightness_max()) < 0 )
-		CONST_ERR("error getting max keyboard brightness")
-	if ((const_vol_range = get_vol_range()) < 0 )
-		CONST_ERR("error getting volume range")
+	int err = 0;
+	
+	if ((const_devidx = get_dev_id()) == 0 ) {
+		SET(WIFI_FLAG);
+		err += -1;
+		CONST_ERR("error getting device id");
+	}
+	if ((const_block_size = get_block_size()) < 0 ) {
+		SET(DISK_FLAG);
+		err += -1;
+		CONST_ERR("error getting block size");
+	}
+	if ((const_bar_max_len = get_bar_max_len(dpy)) < 0 ) {
+		SET(BAR_FLAG);
+		err += -1;
+		CONST_ERR("error calculating max bar length");
+	}
+	if ((const_cpu_ratio = get_cpu_ratio()) < 0 ) {
+		SET(CPU_USAGE_FLAG);
+		err += -1;
+		CONST_ERR("error calculating cpu ratio");
+	}
+	if ((const_temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 ) {
+		SET(CPU_TEMP_FLAG);
+		err += -1;
+		CONST_ERR("error getting max temp");
+	}
+	if ((const_fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 ) {
+		SET(FAN_FLAG);
+		err += -1;
+		CONST_ERR("error getting min fan speed");
+	}
+	if ((const_fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 ) {
+		SET(FAN_FLAG);
+		err += -1;
+		CONST_ERR("error getting max fan speed");
+	}
+	if ((const_screen_brightness_max = get_screen_brightness_max()) < 0 ) {
+		SET(BRIGHTNESS_FLAG);
+		err += -1;
+		CONST_ERR("error getting max screen brightness");
+	}
+	if ((const_kbd_brightness_max = get_kbd_brightness_max()) < 0 ) {
+		SET(BRIGHTNESS_FLAG);
+		err += -1;
+		CONST_ERR("error getting max keyboard brightness");
+	}
+	if ((const_vol_range = get_vol_range()) < 0 ) {
+		SET(VOLUME_FLAG);
+		err += -1;
+		CONST_ERR("error getting volume range");
+	}
 			
-	return 0;
+	return err;
 }
 
 static int
 populate_lists(void)
 {
-	if ((therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input")) == NULL)
-		INIT_ERR("error opening temperature directory", -1)
-	if ((fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input")) == NULL)
-		INIT_ERR("error opening fan speed directory", -1)
+	int err = 0;
+	if ((therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input")) == NULL) {
+		SET(CPU_TEMP_FLAG);
+		err = -1;
+		INIT_ERR("error creating list of CPU temperature sensors", -1)
+	}
+	if ((fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input")) == NULL) {
+		SET(FAN_FLAG);
+		err += -1;
+		INIT_ERR("error creating list of fan speed sensors", -1)
+	}
 	
-	return 0;
+	return err;
 }
 
 static int
@@ -1769,19 +1874,19 @@ make_vol_singleton(void)
 	snd_mixer_selem_id_t *sid;
 	
 	if (snd_mixer_open(&handle, 0))
-		INIT_ERR("Error Open", -1)
+		INIT_ERR("error with snd_mixer_open() in make_vol_singleton()", -1)
 	if (snd_mixer_attach(handle, "default"))
-		INIT_ERR("Error Attch", -1)
+		INIT_ERR("error with snd_mixer_attach() in make_vol_singleton()", -1)
 	if (snd_mixer_selem_register(handle, NULL, NULL))
-		INIT_ERR("Error Rgstr", -1)
+		INIT_ERR("error with snd_mixer_selem_register() in make_vol_singleton()", -1)
 	if (snd_mixer_load(handle))
-		INIT_ERR("Error Load", -1)
+		INIT_ERR("error with snd_mixer_load() in make_vol_singleton()", -1)
 	
 	snd_mixer_selem_id_alloca(&sid);
 	snd_mixer_selem_id_set_name(sid, "Master");
 	
 	if (!(snd_elem = snd_mixer_find_selem(handle, sid)))
-		INIT_ERR("Error snd_elem", -1)
+		INIT_ERR("error with snd_mixer_find_selem() in make_vol_singleton()", -1)
 			
 	// if (snd_mixer_close(handle))
 		// INIT_ERR("Error Close", -1)
@@ -1795,24 +1900,24 @@ make_wifi_singleton(void)
 {
 	sb_socket = nl_socket_alloc();
 	if (!sb_socket)
-		ERR(wifi_string, "err: nl_socket_alloc()")
+		INIT_ERR("error with nl_socket_alloc() in make_wifi_singleton()", -1)
 	if (genl_connect(sb_socket) < 0)
-		ERR(wifi_string, "err: genl_connect()")
+		INIT_ERR("error with genl_connect() in make_wifi_singleton()", -1)
 			
 	sb_id = genl_ctrl_resolve(sb_socket, "nl80211");
 	if (!sb_id)
-		ERR(wifi_string, "err: genl_ctrl_resolve()")
+		INIT_ERR("error with genl_ctrl_resolve() in make_wifi_singleton()", -1)
 	
 	sb_msg = nlmsg_alloc();
 	if (!sb_msg)
-		ERR(wifi_string, "err: nlmsg_alloc()")
+		INIT_ERR("error with nlmsg_alloc() in make_wifi_singleton()", -1)
 			
 	sb_cb = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!sb_cb)
-		ERR(wifi_string, "err: nl_cb_alloc()")
+		INIT_ERR("error with nl_cb_alloc() in make_wifi_singleton()", -1)
 			
 	if (rtnl_open(&sb_rth, 0) < 0)
-		ERR(wifi_string, "error: rtnl_open")
+		INIT_ERR("error with rtnl_open() in make_wifi_singleton()", -1)
 			
 	// nlmsg_free(sb_msg);
 	// nl_socket_free(sb_socket);
@@ -1826,11 +1931,11 @@ static int
 make_curl_singleton(void)
 {
 	if (curl_global_init(CURL_GLOBAL_ALL))
-		ERR(weather_string, "Error curl_global_init(). Please fix issue and restart.")
-	if (!(curl = curl_easy_init()))
-		ERR(weather_string, "Error curl_easy_init(). Please fix issue and restart.")
+		INIT_ERR("error making curl singleton", -1)
+	if (!(sb_curl = curl_easy_init()))
+		INIT_ERR("error making curl singleton", -1)
 			
-	// curl_easy_cleanup(curl);
+	// curl_easy_cleanup(sb_curl);
 	curl_global_cleanup();
 	return 0;
 }
@@ -1838,28 +1943,35 @@ make_curl_singleton(void)
 static int
 make_singletons(void)
 {
-	if (make_curl_singleton() < 0)
-		return -1;
-	if (make_wifi_singleton() < 0)
-		return -1;
-	if (make_vol_singleton() < 0)
-		return -1;
+	int err = 0;
 	
-	return 0;
+	if ((err += make_curl_singleton()) < 0) {
+		SET(WEATHER_FLAG);
+		SET(PORTFOLIO_FLAG);
+		INIT_ERR("error making curl singleton", -1)
+	}
+	if ((err += make_wifi_singleton()) < 0) {
+		SET(WIFI_FLAG);
+		INIT_ERR("error making wifi singleton", -1)
+	}
+	if ((err += make_vol_singleton()) < 0) {
+		SET(VOLUME_FLAG);
+		INIT_ERR("error making volume singleton", -1)
+	}
+	
+	return err;
 }
 
 static int
 init(Display *dpy, Window root)
 {
 	time_t curr_time;
+	int err = 0;
 	
 	populate_tm_struct();
-	if (make_singletons() < 0)
-		INIT_ERR("error making singleton", -1)
-	if (populate_lists() < 0)
-		INIT_ERR("error populating lists", -1)
-	if (get_consts(dpy) < 0)
-		INIT_ERR("error intializing constants", -1)
+	err += make_singletons();
+	err += populate_lists();
+	err += get_consts(dpy);
 	
 	get_log();
 	get_TODO();
@@ -1882,10 +1994,9 @@ init(Display *dpy, Window root)
 	get_battery();
 	
 	time(&curr_time);
-	if (format_string(dpy, root) < 0)
-		INIT_ERR("error format_string() in init()", -1)
+	err += format_string(dpy, root);
 	
-	return 0;
+	return err;
 }
 
 int
@@ -1899,28 +2010,26 @@ main(void)
 	screen = DefaultScreen(dpy);
 	root = RootWindow(dpy, screen);
 	
-	if (init(dpy, root) < 0)
-		strncpy(statusbar_string,
-				"Initialization failed. Check log for details.",
-				STRING_LENGTH - 1);
-	else {
-		switch (loop(dpy, root)) {
-			case 1:
-				strncpy(statusbar_string,
-						"Error getting weather. Loop broken. Check log for details.",
-						STRING_LENGTH - 1);
-				break;
-			case 2:
-				strncpy(statusbar_string,
-						"Error getting WiFi info. Loop broken. Check log for details.",
-						STRING_LENGTH - 1);
-				break;
-			default:
-				strncpy(statusbar_string,
-						"Loop broken. Check log for details.",
-						STRING_LENGTH - 1);
-				break;
-		}
+	if (init(dpy, root) < 0) {
+		fprintf(stderr, "%s\terror with initialization\n", asctime(tm_struct));
+		perror("\tError");
+	}
+	switch (loop(dpy, root)) {
+		case 1:
+			strncpy(statusbar_string,
+					"Error getting weather. Loop broken. Check log for details.",
+					STRING_LENGTH - 1);
+			break;
+		case 2:
+			strncpy(statusbar_string,
+					"Error getting WiFi info. Loop broken. Check log for details.",
+					STRING_LENGTH - 1);
+			break;
+		default:
+			strncpy(statusbar_string,
+					"Loop broken. Check log for details.",
+					STRING_LENGTH - 1);
+			break;
 	}
 	
 	XStoreName(dpy, root, statusbar_string);

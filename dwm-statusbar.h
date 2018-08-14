@@ -71,9 +71,32 @@
 #define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
 #define BATT_CAPACITY_FILE			"/sys/class/power_supply/BAT0/capacity"
 
+#define LOG_FLAG					0
+#define TODO_FLAG					1
+#define WEATHER_FLAG				2
+#define BACKUP_FLAG					3
+#define PORTFOLIO_FLAG				4
+#define WIFI_FLAG					5
+#define TIME_FLAG					6
+#define NETWORK_FLAG				7
+#define DISK_FLAG					8
+#define RAM_FLAG					9
+#define LOAD_FLAG					10
+#define CPU_USAGE_FLAG				11
+#define CPU_TEMP_FLAG				12
+#define FAN_FLAG					13
+#define BRIGHTNESS_FLAG				14
+#define VOLUME_FLAG					15
+#define BATTERY_FLAG				16
+#define BAR_FLAG					17
+#define NUM_FLAGS					18
+
+#define SET(flag) \
+	err_flags |= 1 << flag
+
 #define CONST_ERR(val) \
-	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
-	perror("\tError"); }
+	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+	perror("\tError")
 
 #define INIT_ERR(val, ret) \
 	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
@@ -81,7 +104,7 @@
 	return ret; }
 
 #define ERR(str, val) \
-	{ snprintf(str, sizeof(str) - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
+	{ snprintf(str, STRING_LENGTH - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
 	str[sizeof(str) - 1] = '\0'; \
 	INIT_ERR(val, -1) }
 
@@ -112,8 +135,10 @@ const char color6 = '';
 const char color7 = '';
 const char color8 = '';
 
+int err_flags = 0;
+
 // singletons
-CURL *curl;
+CURL *sb_curl;
 struct nl_sock *sb_socket;
 int sb_id;
 struct nl_msg *sb_msg;
