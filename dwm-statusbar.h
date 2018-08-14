@@ -71,27 +71,32 @@
 #define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
 #define BATT_CAPACITY_FILE			"/sys/class/power_supply/BAT0/capacity"
 
-#define LOG_FLAG					0
-#define TODO_FLAG					1
-#define WEATHER_FLAG				2
-#define BACKUP_FLAG					3
-#define PORTFOLIO_FLAG				4
-#define WIFI_FLAG					5
-#define TIME_FLAG					6
-#define NETWORK_FLAG				7
-#define DISK_FLAG					8
-#define RAM_FLAG					9
-#define LOAD_FLAG					10
-#define CPU_USAGE_FLAG				11
-#define CPU_TEMP_FLAG				12
-#define FAN_FLAG					13
-#define BRIGHTNESS_FLAG				14
-#define VOLUME_FLAG					15
-#define BATTERY_FLAG				16
-#define BAR_FLAG					17
-#define NUM_FLAGS					18
+#define STATUSBAR					0
+#define TOPBAR						1
+#define BOTTOMBAR					2
+#define LOG							3
+#define TODO						4
+#define WEATHER						5
+#define BACKUP						6
+#define PORTFOLIO					7
+#define WIFI						8
+#define TIME						9
+#define NETWORK						10
+#define DISK						11
+#define RAM							12
+#define LOAD						13
+#define CPU_USAGE					14
+#define CPU_TEMP					15
+#define FAN							16
+#define BRIGHTNESS					17
+#define VOLUME						18
+#define BATTERY						19
+#define NUM_FLAGS					20
 
-#define SET(flag) \
+#define STRING(string) \
+	strings[string]
+
+#define SET_FLAG(flag) \
 	err_flags |= 1 << flag
 
 #define CONST_ERR(val) \
@@ -135,6 +140,7 @@ const char color6 = '';
 const char color7 = '';
 const char color8 = '';
 
+char *strings[NUM_FLAGS];
 int err_flags = 0;
 
 // singletons
@@ -175,27 +181,3 @@ int const_fan_max;
 int const_screen_brightness_max;
 int const_kbd_brightness_max;
 float const_vol_range;
-
-char statusbar_string[TOTAL_LENGTH];
-char top_bar[BAR_LENGTH];
-char bottom_bar[BAR_LENGTH];
-
-char TODO_string[STRING_LENGTH];
-char log_string[STRING_LENGTH];
-char weather_string[STRING_LENGTH];
-char backup_string[STRING_LENGTH];
-char portfolio_string[STRING_LENGTH];
-char wifi_string[STRING_LENGTH];
-char time_string[STRING_LENGTH];
-
-char network_string[STRING_LENGTH];
-char disk_string[STRING_LENGTH];
-char RAM_string[STRING_LENGTH];
-char load_string[STRING_LENGTH];
-char CPU_usage_string[STRING_LENGTH];
-char CPU_temp_string[STRING_LENGTH];
-char fan_string[STRING_LENGTH];
-
-char brightness_string[STRING_LENGTH];
-char volume_string[STRING_LENGTH];
-char battery_string[STRING_LENGTH];
