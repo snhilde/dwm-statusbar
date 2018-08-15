@@ -60,7 +60,7 @@ handle_error_flags(char *res_string, int len, const char *heading)
 {
 	if (strlen(res_string) != len)
 		return -1;
-	snprintf(res_string, STRING_LENGTH, " %c %s:%c Error %c ",
+	snprintf(res_string, STRING_LENGTH, " %c %s:%c Error%c ",
 			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
 }
 
@@ -76,9 +76,7 @@ handle_strings(Display *dpy, Window root)
 	for (i = 3; i < NUM_FLAGS; i++) {
 		char *res_string = STRING(i);
 		int bar = i < 10 ? TOPBAR : BOTTOMBAR;
-		if (strlen(res_string) == 0)
-			continue;
-		else if (GET_FLAG(err, i))
+		if (GET_FLAG(err, i))
 			handle_error_flags(res_string, strlen(res_string), headings[i]);
 		else if (GET_FLAG(updated, i))
 			format_string(res_string, strlen(res_string), headings[i], i);
@@ -303,7 +301,7 @@ parse_weather_json(char *raw_json)
 	if (!id)
 		ERR(WEATHER, "error getting id from weather json in parse_weather_json()", -1)
 	
-	snprintf(STRING(WEATHER), STRING_LENGTH, "%c%2d F",
+	snprintf(STRING(WEATHER), STRING_LENGTH, "%c %2d F",
 			id < 800 ? COLOR_WARNING : COLOR_NORMAL, temp_today);
 	
 	cJSON_Delete(parsed_json);
@@ -1373,7 +1371,7 @@ parse_token_json(char *raw_json)
 static int
 get_token(void)
 {
-	if (GET_FLAG(err, WIFI))
+	if (GET_FLAG(err, PORTFOLIO))
 		return -1;
 	
 	struct json_struct token_struct;
