@@ -25,5 +25,5 @@ LIBS = -L /usr/lib \
 	   -l cjson
 
 all:
-	@gcc ${INCS} -o dwm-statusbar dwm-statusbar.c ${LIBS}
+	@gcc -g -O0 ${INCS} -o dwm-statusbar dwm-statusbar.c ${LIBS} --warn-unused-variable
 	@echo build complete
