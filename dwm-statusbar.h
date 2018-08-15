@@ -162,6 +162,7 @@ char forecast_url[STRING_LENGTH];
 int day_safe;				// due to cJSON's not being thread-safe
 int temp_today;
 bool need_to_get_weather = true;
+bool backup_occurring = false;
 long backup_mtime = 0;
 bool equity_found = false;
 bool portfolio_consts_found = false;

@@ -416,6 +416,7 @@ get_backup(void)
 		return 0;
 	
 	backup_mtime = file_stat.st_mtime;
+	backup_occurring = false;
 	
 	FILE *fd;
 	char line[32], status[16], color = COLOR_ERROR;
@@ -462,6 +463,7 @@ get_backup(void)
 			color, status, COLOR_NORMAL);
 	
 	SET_FLAG(updated, BACKUP);
+	backup_occurring = true;
 		
 	return 0;
 }
@@ -1446,6 +1448,7 @@ loop (Display *dpy, Window root)
 		get_time();
 		get_network();
 		get_cpu_usage();
+		get_volume();
 		if (wifi_connected == true) {
 			if (need_to_get_weather == true)
 				if ((weather_return = get_weather()) < 0)
@@ -1454,6 +1457,8 @@ loop (Display *dpy, Window root)
 			if (portfolio_consts_found == false)
 				init_portfolio();
 		}
+		if (backup_occurring)
+			get_backup();
 		
 		// run every five seconds
 		if (tm_struct->tm_sec % 5 == 0) {
@@ -1469,7 +1474,6 @@ loop (Display *dpy, Window root)
 			get_cpu_temp();
 			get_fan();
 			get_brightness();
-			get_volume();
 			get_battery();
 		}
 		
