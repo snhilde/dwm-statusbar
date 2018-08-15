@@ -105,19 +105,16 @@
 #define GET_FLAG(flag, id) \
 	flag ## _flags & 1 << id
 
-#define CONST_ERR(val) \
-	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+#define SIMPLE_ERR(id, val) \
+	{ SET_FLAG(err, id); \
+	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); }
 
-#define INIT_ERR(val, ret) \
-	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+#define ERR(id, val, ret) \
+	{ SET_FLAG(err, id); \
+	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); \
 	return ret; }
-
-#define ERR(str, val) \
-	{ snprintf(str, STRING_LENGTH - 1, "%c %s%c ", COLOR_ERROR, val, COLOR_NORMAL); \
-	str[sizeof(str) - 1] = '\0'; \
-	INIT_ERR(val, -1) }
 
 struct json_struct {
 	char *data;
