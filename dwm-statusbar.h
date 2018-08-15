@@ -96,8 +96,14 @@
 #define STRING(string) \
 	strings[string]
 
-#define SET_FLAG(flag) \
-	err_flags |= 1 << flag
+#define SET_FLAG(flag, id) \
+	flag ## _flags |= 1 << id
+
+#define REMOVE_FLAG(flag, id) \
+	flag ## _flags ^= 1 << id
+
+#define GET_FLAG(flag, id) \
+	flag ## _flags & 1 << id
 
 #define CONST_ERR(val) \
 	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
@@ -142,6 +148,7 @@ const char color8 = '';
 
 char *strings[NUM_FLAGS];
 int err_flags = 0;
+int updated_flags = 0;
 
 // singletons
 CURL *sb_curl;
@@ -181,3 +188,8 @@ int const_fan_max;
 int const_screen_brightness_max;
 int const_kbd_brightness_max;
 float const_vol_range;
+
+const char *headings[NUM_FLAGS] = { NULL, NULL, NULL, "log", "TODO", "weather", "backup",
+									"portfolio", "wifi", "time", "network", "disk", "RAM",
+									"load", "CPU usage", "CPU temp", "fan", "brightness",
+									"volume", "battery" };
