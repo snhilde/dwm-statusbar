@@ -106,8 +106,8 @@
 	flag ## _flags & 1 << id
 
 #define CONST_ERR(val) \
-	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
-	perror("\tError")
+	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
+	perror("\tError"); }
 
 #define INIT_ERR(val, ret) \
 	{ fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
