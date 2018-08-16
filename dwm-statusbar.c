@@ -11,7 +11,7 @@ center_bottom_bar(char *bottom_bar)
 	if (strlen(STRING(BOTTOMBAR)) < const_bar_max_len) {
 		half = (const_bar_max_len - strlen(STRING(BOTTOMBAR))) / 2;
 		memmove(STRING(BOTTOMBAR) + half, STRING(BOTTOMBAR), strlen(STRING(BOTTOMBAR)));
-		memset(STRING(BOTTOMBAR), ' ', half - 1);
+		memset(STRING(BOTTOMBAR), ' ', half);
 	} else
 		memset(STRING(BOTTOMBAR) + strlen(STRING(BOTTOMBAR)) - 3, '.', 3);
 	
@@ -19,49 +19,77 @@ center_bottom_bar(char *bottom_bar)
 }
 
 static int
+format_string(struct data_struct *ds, const char *heading, char *val, int id)
+{
+	struct data_struct *tmp;
+	int len;
+	
+	tmp = ds;
+	len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
+	
+	tmp->data = realloc(tmp->data, len);
+	if (!tmp->data)
+		return -1;
+	memset(tmp->data, '\0', len);
+	snprintf(tmp->data, STRING_LENGTH, " %c %s:%s", COLOR_HEADING, heading, val);
+	
+	return 0;
+}
+
+static int
+handle_error_flags(struct data_struct *ds, const char *heading)
+{
+	struct data_struct *tmp;
+	int len;
+	
+	tmp = ds;
+	len = strlen(heading) + 14; // 14 for rest of error statement + \0
+	
+	tmp->data = realloc(tmp->data, len);
+	if (!tmp->data)
+		return -1;
+	memset(tmp->data, '\0', len);
+	snprintf(tmp->data, STRING_LENGTH, " %c %s:%c Error%c ",
+			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
+	
+	return 0;
+}
+
+static int
 trunc_TODO_string(void)
 {
-	if (GET_FLAG(err, BOTTOMBAR))
+	if (GET_FLAG(err, TOPBAR))
 		return -1;
 	
-	int len_avail, i;
-	const char *top_strings[5] = { STRING(WEATHER), STRING(BACKUP), STRING(PORTFOLIO),
-		STRING(WIFI), STRING(TIME) };
+	int len_avail, i, id, len, TODO_len;
+	const int ids[] = { LOG, WEATHER, BACKUP, PORTFOLIO, WIFI, TIME };
+	char *val;
+	const char *heading;
 	
 	len_avail = const_bar_max_len - 32; // 32 for tags on left side
-	for (i = 0; i < 5; i++)
-		len_avail -= strlen(top_strings[i]);
+	for (i = 0; i < (sizeof ids / sizeof *ids); i++) {
+		id = ids[i];
+		val = STRING(id);
+		heading = headings[id];
+		
+		if (GET_FLAG(err, id))
+			len = strlen(heading) + 14; // 14 for rest of error statement + \0
+		else if (strlen(val) == 0)
+			continue;
+		else
+			len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
+		
+		len_avail -= len;
+	}
 	
-	if (strlen(STRING(TODO)) > len_avail) {
+	TODO_len = strlen(headings[TODO]) + GET_FLAG(err, TODO) ? 14 : strlen(STRING(TODO)) + 5;
+	if (TODO_len > len_avail) {
 		memset(STRING(TODO) + len_avail - 4, '.', 3);
 		STRING(TODO)[len_avail - 1] = '\0';
 	}
 	
+	REMOVE_FLAG(updated, TOPBAR);
 	return 0;
-}
-
-static int
-format_string(char *res_string, int len, const char *heading, int id)
-{
-	if (strlen(res_string) != len)
-		return -1;
-	char *tmp = malloc(len + 1);
-	if (!tmp)
-		return -1;
-	strncpy(tmp, res_string, len + 1);
-	snprintf(res_string, STRING_LENGTH, " %c %s:%s", COLOR_HEADING, heading, tmp);
-	REMOVE_FLAG(updated, id);
-	
-	return 0;
-}
-
-static int
-handle_error_flags(char *res_string, int len, const char *heading)
-{
-	if (strlen(res_string) != len)
-		return -1;
-	snprintf(res_string, STRING_LENGTH, " %c %s:%c Error%c ",
-			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
 }
 
 static int
@@ -71,18 +99,31 @@ handle_strings(Display *dpy, Window root)
 	memset(STRING(TOPBAR), '\0', BAR_LENGTH);
 	memset(STRING(BOTTOMBAR), '\0', BAR_LENGTH);
 	
-	int i;
+	struct data_struct string_struct;
+	int i, bar;
+	char *val;
+	const char *heading;
+	
+	string_struct.data = malloc(1);
+	if (!string_struct.data)
+		return -1;
 	
 	for (i = 3; i < NUM_FLAGS; i++) {
-		char *res_string = STRING(i);
-		int bar = i < 10 ? TOPBAR : BOTTOMBAR;
+		val = STRING(i);
+		heading = headings[i];
+		bar = i < 10 ? TOPBAR : BOTTOMBAR;
+		
 		if (GET_FLAG(err, i))
-			handle_error_flags(res_string, strlen(res_string), headings[i]);
-		else if (GET_FLAG(updated, i))
-			format_string(res_string, strlen(res_string), headings[i], i);
-		if (i == TODO)
+			handle_error_flags(&string_struct, heading);
+		// else if (GET_FLAG(updated, i))
+		else if (strlen(val) == 0)
+			continue;
+		else
+			format_string(&string_struct, heading, val, i);
+		if (i == TODO && GET_FLAG(updated, TOPBAR))
 			trunc_TODO_string();
-		strncat(STRING(bar), res_string, BAR_LENGTH - strlen(STRING(bar) + 1));
+		
+		strncat(STRING(bar), string_struct.data, BAR_LENGTH - (strlen(STRING(bar) + 1)));
 	}
 			
 	center_bottom_bar(STRING(BOTTOMBAR));
@@ -93,6 +134,7 @@ handle_strings(Display *dpy, Window root)
 	if (!XFlush(dpy))
 		ERR(STATUSBAR, "error with XFlush() in handle_strings()", -1)
 	
+	free(string_struct.data);
 	return 0;
 }
 
@@ -111,13 +153,15 @@ get_log(void)
 		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1)
 			
 	if ((intmax_t)dwm_stat.st_size > 1)
-		sprintf(STRING(LOG), "%c Check DWM Log %c ", COLOR_ERROR, COLOR_NORMAL);
+		snprintf(STRING(LOG), STRING_LENGTH, "%c Check DWM Log %c ", COLOR_ERROR, COLOR_NORMAL);
 	else if ((intmax_t)sb_stat.st_size > 1)
-		sprintf(STRING(LOG), "%c Check SB Log %c ", COLOR_ERROR, COLOR_NORMAL);
+		snprintf(STRING(LOG), STRING_LENGTH, "%c Check SB Log %c ", COLOR_ERROR, COLOR_NORMAL);
 	else
 		if (!memset(STRING(LOG), '\0', STRING_LENGTH))
 			ERR(LOG, "error resetting log string in get_log()", -1)
 	
+	SET_FLAG(updated, LOG);
+	SET_FLAG(updated, TOPBAR);
 	return 0;
 }
 
@@ -179,6 +223,7 @@ get_TODO(void)
 		ERR(TODO, "error closing TODO file in get_TODO()", -1)
 			
 	SET_FLAG(updated, TODO);		
+	SET_FLAG(updated, TOPBAR);		
 			
 	return 0;
 }
@@ -312,9 +357,9 @@ static size_t
 curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
 {
 	const size_t received_size = size * nmemb;
-	struct json_struct *tmp;
+	struct data_struct *tmp;
 	
-	tmp = (struct json_struct *)userdata;
+	tmp = (struct data_struct *)userdata;
 	
 	tmp->data = realloc(tmp->data, tmp->size + received_size + 1);
 	if (!tmp->data)
@@ -336,12 +381,14 @@ get_weather(void)
 	if (!memset(STRING(WEATHER), '\0', STRING_LENGTH))
 		ERR(WEATHER, "error resetting weather string in get_weather()", -1)
 			
-	sprintf(STRING(WEATHER), "%cN/A ", COLOR_NORMAL);
-	if (wifi_connected == false)
-		return -2;
+	snprintf(STRING(WEATHER), STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
+	if (!wifi_connected) {
+		need_to_get_weather = true;
+		return -1;
+	}
 	
 	int i;
-	struct json_struct json_structs[2];
+	struct data_struct json_structs[2];
 	static const char *urls[2] = { WEATHER_URL, FORECAST_URL };
 	
 	curl_easy_reset(sb_curl);
@@ -350,7 +397,7 @@ get_weather(void)
 	for (i = 0; i < 2; i++) {
 		json_structs[i].data = malloc(1);
 		if (!json_structs[i].data)
-			ERR(WEATHER, "error allocating memory for json_structs in get_weather()", -1);
+			ERR(WEATHER, "error allocating memory for data_struct in get_weather()", -1);
 		json_structs[i].size = 0;
 		
 		if (curl_easy_setopt(sb_curl, CURLOPT_URL, urls[i]) != CURLE_OK ||
@@ -374,6 +421,7 @@ get_weather(void)
 	}
 	
 	SET_FLAG(updated, WEATHER);
+	SET_FLAG(updated, TOPBAR);
 	
 	return 0;
 }
@@ -463,6 +511,7 @@ get_backup(void)
 			color, status, COLOR_NORMAL);
 	
 	SET_FLAG(updated, BACKUP);
+	SET_FLAG(updated, TOPBAR);
 	backup_occurring = true;
 		
 	return 0;
@@ -505,7 +554,6 @@ static int
 get_cst_time(int flag)
 {
 	time_t seconds;
-	int hour;
 	struct tm *cst_tm_struct;
 	
 	time(&seconds);
@@ -530,13 +578,13 @@ run_or_skip(void)
 	cst_hour = get_cst_time(HOUR);
 	cst_day = get_cst_time(DAY);
 	
-	if (wifi_connected == false)
+	if (!wifi_connected)
 		return 2;
 	
-	if (portfolio_consts_found == false)
+	if (!portfolio_consts_found)
 		return 2;
 	
-	if (equity_found == true) {
+	if (equity_found) {
 		// Markets are closed on Saturday and Sunday CST
 		if (cst_day == 0 || cst_day == 6)
 			return 1;
@@ -575,7 +623,7 @@ get_portfolio(void)
 	snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%cN/A ",
 			COLOR_HEADING, COLOR_NORMAL);
 			
-	struct json_struct portfolio_jstruct;
+	struct data_struct portfolio_jstruct;
 	static double equity;
 	char equity_string[16];
 	
@@ -597,12 +645,13 @@ get_portfolio(void)
 			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1)
 		snprintf(equity_string, sizeof equity_string, "%.2lf", equity);
 		
-		sprintf(STRING(PORTFOLIO), "%c%.2lf ",
+		snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%c%.2lf ",
 				equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
 		equity_found = true;
 	}
 	
 	SET_FLAG(updated, PORTFOLIO);
+	SET_FLAG(updated, TOPBAR);
 			
 	free(portfolio_jstruct.data);
 	return 0;
@@ -643,11 +692,11 @@ print_ssid(uint8_t len, uint8_t *data, char *ssid_string)
 
 	for (i = 0; i < len && i < STRING_LENGTH; i++) {
 		if (isprint(data[i]) && data[i] != ' ' && data[i] != '\\')
-			sprintf(tmp_str, "%c", data[i]);
+			snprintf(tmp_str, STRING_LENGTH, "%c", data[i]);
 		else if (data[i] == ' ' && (i != 0 && i != len - 1))
-			sprintf(tmp_str, " ");
+			snprintf(tmp_str, STRING_LENGTH, " ");
 		else
-			sprintf(tmp_str, "\\x%.2x", data[i]);
+			snprintf(tmp_str, STRING_LENGTH, "\\x%.2x", data[i]);
 		strncat(ssid_string, tmp_str, STRING_LENGTH - strlen(ssid_string));
 	}
 	
@@ -721,7 +770,7 @@ ip_check(int flag)
 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
 	
 	if (flag)
-		// 2 if down, 6 if up
+		// 2 if down, 6 if up, 5 if up but not connected
 		rv = *(__u8 *)RTA_DATA(tb[IFLA_OPERSTATE]);
 	else
 		// 0 if down, 1 if up
@@ -760,7 +809,7 @@ get_wifi(void)
 		strncpy(ssid_string, "No Carrier", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 6) {
-		if (wifi_connected == true)
+		if (wifi_connected)
 			return 0;
 		if (!memset(STRING(WIFI), '\0', STRING_LENGTH))
 			ERR(WIFI, "error resetting wifi string in get_wifi()", -1)
@@ -789,6 +838,7 @@ get_wifi(void)
 		ERR(WIFI, "error finding wifi status in get_wifi()", -1)
 			
 	SET_FLAG(updated, WIFI);		
+	SET_FLAG(updated, TOPBAR);		
 	
 	return 0;
 }
@@ -806,8 +856,6 @@ get_time(void)
 		ERR(TIME, "error with strftime() in get_time()", -1)
 	if (tm_struct->tm_sec % 2)
 		STRING(TIME)[strlen(STRING(TIME)) - 3] = ' ';
-	
-	SET_FLAG(updated, TIME);
 	
 	return 0;
 }
@@ -1256,8 +1304,6 @@ get_battery(void)
 	int status; // -1 = discharging, 0 = full, 1 = charging
 	int capacity;
 	
-	const char *filepaths[2] = { BATT_STATUS_FILE, BATT_CAPACITY_FILE };
-	
 	fd = fopen(BATT_STATUS_FILE, "r");
 	if (!fd)
 		ERR(BATTERY, "error opening battery status file in get_battery()", -1)
@@ -1326,7 +1372,7 @@ get_account_number(void)
 	if (GET_FLAG(err, PORTFOLIO))
 		return -1;
 	
-	struct json_struct account_number_struct;
+	struct data_struct account_number_struct;
 	
 	curl_easy_reset(sb_curl);
 	
@@ -1376,7 +1422,7 @@ get_token(void)
 	if (GET_FLAG(err, PORTFOLIO))
 		return -1;
 	
-	struct json_struct token_struct;
+	struct data_struct token_struct;
 	struct curl_slist *header = NULL;
 	
 	curl_easy_reset(sb_curl);
@@ -1431,6 +1477,8 @@ populate_tm_struct(void)
 	time_t tval;
 	time(&tval);
 	tm_struct = localtime(&tval);
+	if (!tm_struct)
+		ERR(TIME, "error with localtime() in populate_tm_struct()", -1)
 	
 	return 0;
 }
@@ -1438,23 +1486,21 @@ populate_tm_struct(void)
 static int
 loop (Display *dpy, Window root)
 {
-	int weather_return = 0;
+	int err = 0;
 	
 	while (1) {
 		// get times
-		populate_tm_struct();
+		err += populate_tm_struct();
 		
 		// // run every second
 		get_time();
 		get_network();
 		get_cpu_usage();
 		get_volume();
-		if (wifi_connected == true) {
-			if (need_to_get_weather == true)
-				if ((weather_return = get_weather()) < 0)
-					if (weather_return != -2)
-						break;
-			if (portfolio_consts_found == false)
+		if (wifi_connected) {
+			if (need_to_get_weather)
+				get_weather();
+			if (!portfolio_consts_found)
 				init_portfolio();
 		}
 		if (backup_occurring)
@@ -1465,10 +1511,8 @@ loop (Display *dpy, Window root)
 			get_log();
 			get_TODO();
 			get_backup();
-			if (get_portfolio() == -1)
-				break;
-			if (get_wifi() < 0)
-				break;
+			get_portfolio();
+			get_wifi();
 			get_RAM();
 			get_load();
 			get_cpu_temp();
@@ -1484,18 +1528,16 @@ loop (Display *dpy, Window root)
 		
 		// run every 3 hours
 		if ((tm_struct->tm_hour + 1) % 3 == 0 && tm_struct->tm_min == 0 && tm_struct->tm_sec == 0)
-			if (wifi_connected == false)
+			if (!wifi_connected)
 				need_to_get_weather = true;
 			else
-				if ((weather_return = get_weather()) < 0)
-					if (weather_return != -2)
-						break;
+				get_weather();
 		
-		handle_strings(dpy, root);
-		sleep(1);
+		err += handle_strings(dpy, root);
+		err += sleep(1);
 	}
 	
-	return -1;
+	return err;
 }
 
 static int
@@ -1667,7 +1709,7 @@ populate_list(struct file_link *list, char *path, char *base, char *match)
 static int
 get_gen_consts(char *path, char *base, char *match)
 {
-	struct file_link *list = NULL, *link;
+	struct file_link *list = NULL;
 	int total, count;
 	
 	list = populate_list(list, path, base, match);
@@ -1804,7 +1846,7 @@ get_consts(Display *dpy)
 {
 	int err = 0;
 	
-	if ((const_devidx = get_dev_id()) == 0 ) {
+	if ((const_devidx = get_dev_id()) == 0) {
 		err += -1;
 		SIMPLE_ERR(WIFI, "error getting device id in get_consts()");
 	}
@@ -1977,6 +2019,8 @@ alloc_strings(void)
 		memset(ptr, '\0', len);
 		strings[i] = ptr;
 	}
+	
+	return 0;
 }
 
 static int
@@ -2030,26 +2074,12 @@ main(void)
 	
 	if (init(dpy, root) < 0)
 		SIMPLE_ERR(0, "error with initialization")
-	switch (loop(dpy, root)) {
-		case 1:
-			strncpy(STRING(STATUSBAR),
-					"error getting weather. Loop broken. Check log for details.",
-					STRING_LENGTH - 1);
-			break;
-		case 2:
-			strncpy(STRING(STATUSBAR),
-					"error getting WiFi info. Loop broken. Check log for details.",
-					STRING_LENGTH - 1);
-			break;
-		default:
-			strncpy(STRING(STATUSBAR),
-					"Loop broken. Check log for details.",
-					STRING_LENGTH - 1);
-			break;
-	}
+	if (loop(dpy, root) < 0)
+		ERR(0, "loop broken", 1)
 	
+	strncpy(STRING(STATUSBAR), "Loop broken. Please check log for details.", TOTAL_LENGTH);
 	XStoreName(dpy, root, STRING(STATUSBAR));
 	XFlush(dpy);
 	
-	return 1;
+	return 0;
 }

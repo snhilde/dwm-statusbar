@@ -116,7 +116,7 @@
 	perror("\tError"); \
 	return ret; }
 
-struct json_struct {
+struct data_struct {
 	char *data;
 	int size;
 };
