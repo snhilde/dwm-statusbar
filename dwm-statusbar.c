@@ -90,7 +90,7 @@ handle_strings(Display *dpy, Window root)
 	memset(STRING(TOPBAR), '\0', BAR_LENGTH);
 	memset(STRING(BOTTOMBAR), '\0', BAR_LENGTH);
 	
-	int i, bar;
+	int i, bar, flag;
 	char *val;
 	const char *heading;
 	char *str;
@@ -99,10 +99,11 @@ handle_strings(Display *dpy, Window root)
 		val = STRING(i);
 		heading = HEADING(i);
 		bar = i < 10 ? TOPBAR : BOTTOMBAR;
+		flag = GET_FLAG(err, i);
 		
-		if (!GET_FLAG(err, i) && !strlen(val))
+		if (!flag && !strlen(val))
 			continue;
-		format_string(&str, heading, val, i, GET_FLAG(err, i));
+		format_string(&str, heading, val, i, flag);
 		
 		strncat(STRING(bar), str, BAR_LENGTH - (strlen(STRING(bar) + 1)));
 		free(str);
@@ -807,17 +808,16 @@ get_wifi(void)
 			strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
 		else
 			color = COLOR1;
-		
-		format_wifi_status(color, ssid_string);
 
 		wifi_connected = true;
-		free(ssid_string);
 	} else
 		ERR(WIFI, "error finding wifi status in get_wifi()", -1)
 			
+	format_wifi_status(color, ssid_string);
 	SET_FLAG(updated, WIFI);		
 	SET_FLAG(updated, TOPBAR);		
 	
+	free(ssid_string);
 	return 0;
 }
 
