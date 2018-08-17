@@ -29,7 +29,7 @@ format_string(struct data_struct *ds, const char *heading, char *val, int id)
 	
 	tmp->data = realloc(tmp->data, len);
 	if (!tmp->data)
-		return -1;
+		ERR(id, "error allocating memory for tmp->data in format_string()", -1)
 	memset(tmp->data, '\0', len);
 	snprintf(tmp->data, STRING_LENGTH, " %c %s:%s", COLOR_HEADING, heading, val);
 	
@@ -37,7 +37,7 @@ format_string(struct data_struct *ds, const char *heading, char *val, int id)
 }
 
 static int
-handle_error_flags(struct data_struct *ds, const char *heading)
+handle_error_flag(struct data_struct *ds, const char *heading)
 {
 	struct data_struct *tmp;
 	int len;
@@ -47,7 +47,7 @@ handle_error_flags(struct data_struct *ds, const char *heading)
 	
 	tmp->data = realloc(tmp->data, len);
 	if (!tmp->data)
-		return -1;
+		ERR(0, "error allocating memory for tmp->data in handle_error_flag()", -1)
 	memset(tmp->data, '\0', len);
 	snprintf(tmp->data, STRING_LENGTH, " %c %s:%c Error%c ",
 			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
@@ -106,7 +106,7 @@ handle_strings(Display *dpy, Window root)
 	
 	string_struct.data = malloc(1);
 	if (!string_struct.data)
-		return -1;
+		ERR(0, "error allocating memory for string_struct.data in handle_strings()", -1);
 	
 	for (i = 3; i < NUM_FLAGS; i++) {
 		val = STRING(i);
@@ -114,7 +114,7 @@ handle_strings(Display *dpy, Window root)
 		bar = i < 10 ? TOPBAR : BOTTOMBAR;
 		
 		if (GET_FLAG(err, i))
-			handle_error_flags(&string_struct, heading);
+			handle_error_flag(&string_struct, heading);
 		// else if (GET_FLAG(updated, i))
 		else if (strlen(val) == 0)
 			continue;
@@ -153,9 +153,9 @@ get_log(void)
 		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1)
 			
 	if ((intmax_t)dwm_stat.st_size > 1)
-		snprintf(STRING(LOG), STRING_LENGTH, "%c Check DWM Log %c ", COLOR_ERROR, COLOR_NORMAL);
+		snprintf(STRING(LOG), STRING_LENGTH, "%c Check DWM Log%c ", COLOR_ERROR, COLOR_NORMAL);
 	else if ((intmax_t)sb_stat.st_size > 1)
-		snprintf(STRING(LOG), STRING_LENGTH, "%c Check SB Log %c ", COLOR_ERROR, COLOR_NORMAL);
+		snprintf(STRING(LOG), STRING_LENGTH, "%c Check SB Log%c ", COLOR_ERROR, COLOR_NORMAL);
 	else
 		if (!memset(STRING(LOG), '\0', STRING_LENGTH))
 			ERR(LOG, "error resetting log string in get_log()", -1)
