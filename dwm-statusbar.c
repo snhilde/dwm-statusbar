@@ -56,9 +56,9 @@ handle_error_flag(struct data_struct *ds, const char *heading)
 }
 
 static int
-trunc_TODO_string(void)
+trunc_TODO_string(struct data_struct *ds)
 {
-	if (GET_FLAG(err, TOPBAR))
+	if (GET_FLAG(err, BOTTOMBAR))
 		return -1;
 	
 	int len_avail, i, id, len, TODO_len;
@@ -82,10 +82,10 @@ trunc_TODO_string(void)
 		len_avail -= len;
 	}
 	
-	TODO_len = strlen(headings[TODO]) + GET_FLAG(err, TODO) ? 14 : strlen(STRING(TODO)) + 5;
+	TODO_len = strlen(ds->data);
 	if (TODO_len > len_avail) {
-		memset(STRING(TODO) + len_avail - 4, '.', 3);
-		STRING(TODO)[len_avail - 1] = '\0';
+		memset(ds->data + len_avail - 4, '.', 3);
+		ds->data[len_avail - 1] = '\0';
 	}
 	
 	REMOVE_FLAG(updated, TOPBAR);
@@ -120,8 +120,8 @@ handle_strings(Display *dpy, Window root)
 			continue;
 		else
 			format_string(&string_struct, heading, val, i);
-		if (i == TODO && GET_FLAG(updated, TOPBAR))
-			trunc_TODO_string();
+		if (i == TODO)
+			trunc_TODO_string(&string_struct);
 		
 		strncat(STRING(bar), string_struct.data, BAR_LENGTH - (strlen(STRING(bar) + 1)));
 	}
