@@ -19,41 +19,6 @@ center_bottom_bar(char *bottom_bar)
 }
 
 static int
-format_string(char **str, const char *heading, char *val, int id)
-{
-	char *tmp;
-	int len;
-	
-	len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
-	
-	tmp = calloc(1, len);
-	if (!tmp)
-		ERR(id, "error allocating memory for tmp in format_string()", -1)
-	snprintf(tmp, len, " %c %s:%s", COLOR_HEADING, heading, val);
-	*str = tmp;
-	
-	return 0;
-}
-
-static int
-handle_error_flag(char **str, const char *heading)
-{
-	char *tmp;
-	int len;
-	
-	len = strlen(heading) + 14; // 14 for rest of error statement + \0
-	
-	tmp = calloc(1, len);
-	if (!tmp)
-		ERR(0, "error allocating memory for tmp in handle_error_flag()", -1)
-	snprintf(tmp, STRING_LENGTH, " %c %s:%c Error%c ",
-			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
-	*str = tmp;
-	
-	return 0;
-}
-
-static int
 trunc_TODO_string(char *str)
 {
 	if (GET_FLAG(err, BOTTOMBAR))
@@ -91,6 +56,34 @@ trunc_TODO_string(char *str)
 }
 
 static int
+format_string(char **str, const char *heading, char *val, int id, bool err_flag)
+{
+	char *tmp;
+	int len;
+	
+	if (err_flag)
+		len = strlen(heading) + 14; // 14 for rest of error statement + \0
+	else
+		len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
+	
+	tmp = calloc(1, len);
+	if (!tmp)
+		ERR(id, "error allocating memory for tmp in format_string()", -1)
+	
+	if (err_flag)
+		snprintf(tmp, STRING_LENGTH, " %c %s:%c Error%c ",
+				COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
+	else
+		snprintf(tmp, len, " %c %s:%s", COLOR_HEADING, heading, val);
+	*str = tmp;
+	
+	if (id == TODO)
+		trunc_TODO_string(*str);
+	
+	return 0;
+}
+
+static int
 handle_strings(Display *dpy, Window root)
 {
 	memset(STRING(STATUSBAR), '\0', TOTAL_LENGTH);
@@ -107,15 +100,9 @@ handle_strings(Display *dpy, Window root)
 		heading = HEADING(i);
 		bar = i < 10 ? TOPBAR : BOTTOMBAR;
 		
-		if (GET_FLAG(err, i))
-			handle_error_flag(&str, heading);
-		// else if (GET_FLAG(updated, i))
-		else if (strlen(val) == 0)
+		if (!GET_FLAG(err, i) && !strlen(val))
 			continue;
-		else
-			format_string(&str, heading, val, i);
-		if (i == TODO)
-			trunc_TODO_string(str);
+		format_string(&str, heading, val, i, GET_FLAG(err, i));
 		
 		strncat(STRING(bar), str, BAR_LENGTH - (strlen(STRING(bar) + 1)));
 		free(str);
