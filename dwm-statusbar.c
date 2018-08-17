@@ -796,6 +796,10 @@ get_wifi(void)
 	op_state = ip_check(1);
 	if (op_state == -1) return -1;
 	
+	ssid_string = calloc(1, STRING_LENGTH);
+	if (!ssid_string)
+		ERR(WIFI, "error allocating memory for ssid_string in get_wifi()", -1)
+	
 	if (ifi_flag == 0 && op_state == 2) {
 		strncpy(ssid_string, "Wireless Device Set Down", STRING_LENGTH - 1);
 		wifi_connected = false;
@@ -811,13 +815,6 @@ get_wifi(void)
 	} else if (ifi_flag && op_state == 6) {
 		if (wifi_connected)
 			return 0;
-		if (!memset(STRING(WIFI), '\0', STRING_LENGTH))
-			ERR(WIFI, "error resetting wifi string in get_wifi()", -1)
-		ssid_string = malloc(STRING_LENGTH);
-		if (!ssid_string)
-			ERR(WIFI, "error allocating memory for ssid_string in get_wifi()", -1)
-		if (!memset(ssid_string, '\0', STRING_LENGTH))
-			ERR(WIFI, "error resetting ssid string in get_wifi()", -1)
 	
 		genlmsg_put(sb_msg, 0, 0, sb_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
 		if (nla_put(sb_msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &const_devidx) < 0)
