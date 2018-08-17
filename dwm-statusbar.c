@@ -1530,9 +1530,9 @@ get_vol_range(void)
 }
 
 static int
-get_kbd_brightness_max(void)
+get_brightness_max(char *brightness_file)
 {
-	if (!DISPLAY_KBD)
+	if (!DISPLAY_KBD && !strcmp(brightness_file, KBD_BRIGHTNESS_FILE))
 		return 0;
 	
 	char file_str[STRING_LENGTH];
@@ -1543,11 +1543,11 @@ get_kbd_brightness_max(void)
 	FILE *fd;
 	int max;
 	
-	strncpy(file_str, KBD_BRIGHTNESS_FILE, STRING_LENGTH - 1);
+	strncpy(file_str, brightness_file, STRING_LENGTH - 1);
 	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
 	
 	if (!(dir = opendir(dir_str)))
-		ERR(BRIGHTNESS, "error opening keyboard brightness directory in get_kbd_brightness_max", -1)
+		ERR(BRIGHTNESS, "error opening brightness directory in get_brightness_max", -1)
 			
 	while ((file = readdir(dir)))
 		if (!strcmp(file->d_name, "max_brightness")) {
@@ -1559,58 +1559,17 @@ get_kbd_brightness_max(void)
 			break;
 		}
 	if (!count)
-		ERR(BRIGHTNESS, "error finding keyboard brightness directory in get_kbd_brightness_max", -1)
+		ERR(BRIGHTNESS, "error finding brightness directory in get_brightness_max", -1)
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		ERR(BRIGHTNESS, "error opening keyboard brightness file in get_kbd_brightness_max", -1)
+		ERR(BRIGHTNESS, "error opening brightness file in get_brightness_max", -1)
 	fscanf(fd, "%d", &max);
 	
 	if (fclose(fd) < 0)
-		ERR(BRIGHTNESS, "error closing keyboard brightness file in get_kbd_brightness_max", -1)
+		ERR(BRIGHTNESS, "error closing brightness file in get_brightness_max", -1)
 	if (closedir(dir) < 0)
-		ERR(BRIGHTNESS, "error closing keyboard brightness directory in get_kbd_brightness_max", -1)
-	return max;
-}
-
-static int
-get_screen_brightness_max(void)
-{
-	char file_str[STRING_LENGTH];
-	char dir_str[STRING_LENGTH];
-	DIR *dir;
-	struct dirent *file;
-	int count = 0;
-	FILE *fd;
-	int max;
-	
-	strncpy(file_str, SCREEN_BRIGHTNESS_FILE, STRING_LENGTH - 1);
-	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
-	
-	if (!(dir = opendir(dir_str)))
-		ERR(BRIGHTNESS, "error opening screen brightness directory in get_screen_brightness_max()", -1)
-			
-	while ((file = readdir(dir)))
-		if (!strcmp(file->d_name, "max_brightness")) {
-			if (strlen(dir_str) + strlen(file->d_name) + 2 > sizeof dir_str)
-				break;
-			strncat(dir_str, "/", STRING_LENGTH - strlen(dir_str));
-			strncat(dir_str, file->d_name, STRING_LENGTH - strlen(dir_str));
-			count++;
-			break;
-		}
-	if (!count)
-		ERR(BRIGHTNESS, "error finding screen brightness directory in get_screen_brightness_max()", -1)
-	
-	fd = fopen(dir_str, "r");
-	if (!fd)
-		ERR(BRIGHTNESS, "error opening screen brightness file in get_screen_brightness_max()", -1)
-	fscanf(fd, "%d", &max);
-	
-	if (fclose(fd) < 0)
-		ERR(BRIGHTNESS, "error closing screen brightness file in get_screen_brightness_max()", -1)
-	if (closedir(dir) < 0)
-		ERR(BRIGHTNESS, "error closing screen brightness directory in get_screen_brightness_max()", -1)
+		ERR(BRIGHTNESS, "error closing brightness directory in get_brightness_max", -1)
 	return max;
 }
 
@@ -1854,11 +1813,11 @@ get_consts(Display *dpy)
 		err += -1;
 		SIMPLE_ERR(FAN, "error getting maximum fan speed in get_consts()");
 	}
-	if ((const_screen_brightness_max = get_screen_brightness_max()) < 0 ) {
+	if ((const_screen_brightness_max = get_brightness_max(SCREEN_BRIGHTNESS_FILE)) < 0 ) {
 		err += -1;
 		SIMPLE_ERR(BRIGHTNESS, "error getting maximum screen brightness in get_consts()");
 	}
-	if ((const_kbd_brightness_max = get_kbd_brightness_max()) < 0 ) {
+	if ((const_kbd_brightness_max = get_brightness_max(KBD_BRIGHTNESS_FILE)) < 0 ) {
 		err += -1;
 		SIMPLE_ERR(BRIGHTNESS, "error getting maximum keyboard brightness in get_consts()");
 	}
