@@ -139,7 +139,7 @@ get_log(void)
 	else if ((intmax_t)sb_stat.st_size > 1)
 		snprintf(STRING(LOG), STRING_LENGTH, "%c Check SB Log%c ", COLOR_ERROR, COLOR_NORMAL);
 	else
-		if (!memset(STRING(LOG), '\0', STRING_LENGTH))
+		if (!memset(STRING(LOG), '\0', strlen(STRING(LOG))))
 			ERR(LOG, "error resetting log string in get_log()", -1)
 	
 	SET_FLAG(updated, LOG);
@@ -164,9 +164,6 @@ get_TODO(void)
 		return 0;
 	else
 		TODO_mtime = file_stat.st_mtime;
-	
-	if (!memset(STRING(TODO), '\0', STRING_LENGTH))
-		ERR(TODO, "error resetting TODO string in get_TODO()", -1)
 	
 	fd = fopen(TODO_FILE, "r");
 	if (!fd)
@@ -360,9 +357,6 @@ get_weather(void)
 	if (GET_FLAG(err, WEATHER))
 		return -1;
 	
-	if (!memset(STRING(WEATHER), '\0', STRING_LENGTH))
-		ERR(WEATHER, "error resetting weather string in get_weather()", -1)
-			
 	snprintf(STRING(WEATHER), STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
 	if (!wifi_connected) {
 		need_to_get_weather = true;
@@ -455,9 +449,6 @@ get_backup(void)
 	time_t t_diff;
 	
 	len = sizeof status;
-	
-	if (!memset(STRING(BACKUP), '\0', STRING_LENGTH))
-		ERR(BACKUP, "error resetting backup string in get_backup()", -1)
 	
 	if (!(fd = fopen(BACKUP_STATUS_FILE, "r")))
 		ERR(BACKUP, "error opening backup status file in get_backup()", -1)
@@ -601,9 +592,6 @@ get_portfolio(void)
 		case 2: return -2;
 	}
 	
-	if (!memset(STRING(PORTFOLIO), '\0', STRING_LENGTH))
-		ERR(PORTFOLIO, "error resetting portfolio string in get_portfolio()", -1)
-			
 	struct data_struct portfolio_jstruct;
 	static double equity;
 	
@@ -824,9 +812,6 @@ get_time(void)
 	if (GET_FLAG(err, TIME))
 		return -1;
 	
-	if (!memset(STRING(TIME), '\0', STRING_LENGTH))
-		ERR(TIME, "error resetting time string in get_time()", -1)
-	
 	if (strftime(STRING(TIME), STRING_LENGTH,  "%b %d - %I:%M", tm_struct) == 0)
 		ERR(TIME, "error with strftime() in get_time()", -1)
 	if (tm_struct->tm_sec % 2)
@@ -868,9 +853,6 @@ get_network(void)
 {
 	if (GET_FLAG(err, NETWORK))
 		return -1;
-	
-	if (!memset(STRING(NETWORK), '\0', STRING_LENGTH))
-		ERR(NETWORK, "error resetting network_usage in get_network()", -1)
 	
 	/* from top.c */
 	const char* files[2] = { NET_RX_FILE, NET_TX_FILE };
@@ -952,9 +934,6 @@ get_disk(void)
 	if (GET_FLAG(err, DISK))
 		return -1;
 	
-	if (!memset(STRING(DISK), '\0', STRING_LENGTH))
-		ERR(DISK, "error resetting disk string in get_disk()", -1)
-	
 	int rootperc;
 
 	if (statvfs("/", &root_fs.fs_stat) < 0)
@@ -979,9 +958,6 @@ get_RAM(void)
 	if (GET_FLAG(err, RAM))
 		return -1;
 	
-	if (!memset(STRING(RAM), '\0', STRING_LENGTH))
-		ERR(RAM, "error resetting RAM string in get_RAM()", -1)
-	
 	int memperc;
 
 	meminfo();
@@ -1005,9 +981,6 @@ get_load(void)
 	if (GET_FLAG(err, LOAD))
 		return -1;
 	
-	if (!memset(STRING(LOAD), '\0', STRING_LENGTH))
-		ERR(LOAD, "error resetting load string in get_load()", -1)
-	
 	// why was this static?
 	double av[3];
 	
@@ -1028,9 +1001,6 @@ get_cpu_usage(void)
 		return -1;
 	
 	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
-	if (!memset(STRING(CPU_USAGE), '\0', STRING_LENGTH))
-		ERR(CPU_USAGE, "error resetting CPU usage string in get_cpu_usage()", -1)
-	
 	/* from top.c */
 	FILE *fd;
 	char line[64];
@@ -1135,9 +1105,6 @@ get_cpu_temp(void)
 	if (GET_FLAG(err, CPU_TEMP))
 		return -1;
 	
-	if (!memset(STRING(CPU_TEMP), '\0', STRING_LENGTH))
-		ERR(CPU_TEMP, "error resetting CPU_temp string in get_cpu_temp()", -1)
-			
 	int total, count, temp, tempperc; 
 	
 	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count) < 0)
@@ -1162,9 +1129,6 @@ get_fan(void)
 {
 	if (GET_FLAG(err, FAN))
 		return -1;
-	
-	if (!memset(STRING(FAN), '\0', STRING_LENGTH))
-		ERR(FAN, "error resetting fan string in get_fan()", -1)
 	
 	int rpm, count, fanperc;
 	
@@ -1196,9 +1160,6 @@ get_brightness(void)
 	if (GET_FLAG(err, BRIGHTNESS))
 		return -1;
 	
-	if (!memset(STRING(BRIGHTNESS), '\0', STRING_LENGTH))
-		ERR(BRIGHTNESS, "error resetting brightness string in get_brightness()", -1)
-			
 	const char* b_files[2] = { SCREEN_BRIGHTNESS_FILE, KBD_BRIGHTNESS_FILE };
 	
 	int scrn, kbd;
@@ -1237,9 +1198,6 @@ get_volume(void)
 	if (GET_FLAG(err, VOLUME))
 		return -1;
 	
-	if (!memset(STRING(VOLUME), '\0', STRING_LENGTH))
-		ERR(VOLUME, "error resetting volume string in get_volume()", -1)
-	
 	long pvol;
 	int swch, volperc;
 	
@@ -1271,8 +1229,6 @@ get_battery(void)
 	if (GET_FLAG(err, BATTERY))
 		return -1;
 	
-	if (!memset(STRING(BATTERY), '\0', STRING_LENGTH))
-		ERR(BATTERY, "error resetting battery string in get_battery()", -1)
 	/* from acpi.c and other acpi source files */
 	FILE *fd;
 	char status_string[20];
