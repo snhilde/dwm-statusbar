@@ -19,44 +19,42 @@ center_bottom_bar(char *bottom_bar)
 }
 
 static int
-format_string(struct data_struct *ds, const char *heading, char *val, int id)
+format_string(char **str, const char *heading, char *val, int id)
 {
-	struct data_struct *tmp;
+	char *tmp;
 	int len;
 	
-	tmp = ds;
 	len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
 	
-	tmp->data = realloc(tmp->data, len);
-	if (!tmp->data)
-		ERR(id, "error allocating memory for tmp->data in format_string()", -1)
-	memset(tmp->data, '\0', len);
-	snprintf(tmp->data, STRING_LENGTH, " %c %s:%s", COLOR_HEADING, heading, val);
+	tmp = calloc(1, len);
+	if (!tmp)
+		ERR(id, "error allocating memory for tmp in format_string()", -1)
+	snprintf(tmp, len, " %c %s:%s", COLOR_HEADING, heading, val);
+	*str = tmp;
 	
 	return 0;
 }
 
 static int
-handle_error_flag(struct data_struct *ds, const char *heading)
+handle_error_flag(char **str, const char *heading)
 {
-	struct data_struct *tmp;
+	char *tmp;
 	int len;
 	
-	tmp = ds;
 	len = strlen(heading) + 14; // 14 for rest of error statement + \0
 	
-	tmp->data = realloc(tmp->data, len);
-	if (!tmp->data)
-		ERR(0, "error allocating memory for tmp->data in handle_error_flag()", -1)
-	memset(tmp->data, '\0', len);
-	snprintf(tmp->data, STRING_LENGTH, " %c %s:%c Error%c ",
+	tmp = calloc(1, len);
+	if (!tmp)
+		ERR(0, "error allocating memory for tmp in handle_error_flag()", -1)
+	snprintf(tmp, STRING_LENGTH, " %c %s:%c Error%c ",
 			COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
+	*str = tmp;
 	
 	return 0;
 }
 
 static int
-trunc_TODO_string(struct data_struct *ds)
+trunc_TODO_string(char *str)
 {
 	if (GET_FLAG(err, BOTTOMBAR))
 		return -1;
@@ -70,7 +68,7 @@ trunc_TODO_string(struct data_struct *ds)
 	for (i = 0; i < (sizeof ids / sizeof *ids); i++) {
 		id = ids[i];
 		val = STRING(id);
-		heading = headings[id];
+		heading = HEADING(id);
 		
 		if (GET_FLAG(err, id))
 			len = strlen(heading) + 14; // 14 for rest of error statement + \0
@@ -82,10 +80,10 @@ trunc_TODO_string(struct data_struct *ds)
 		len_avail -= len;
 	}
 	
-	TODO_len = strlen(ds->data);
+	TODO_len = strlen(str);
 	if (TODO_len > len_avail) {
-		memset(ds->data + len_avail - 4, '.', 3);
-		ds->data[len_avail - 1] = '\0';
+		memset(str + len_avail - 4, '.', 3);
+		str[len_avail - 1] = '\0';
 	}
 	
 	REMOVE_FLAG(updated, TOPBAR);
@@ -99,31 +97,28 @@ handle_strings(Display *dpy, Window root)
 	memset(STRING(TOPBAR), '\0', BAR_LENGTH);
 	memset(STRING(BOTTOMBAR), '\0', BAR_LENGTH);
 	
-	struct data_struct string_struct;
 	int i, bar;
 	char *val;
 	const char *heading;
-	
-	string_struct.data = malloc(1);
-	if (!string_struct.data)
-		ERR(0, "error allocating memory for string_struct.data in handle_strings()", -1);
+	char *str;
 	
 	for (i = 3; i < NUM_FLAGS; i++) {
 		val = STRING(i);
-		heading = headings[i];
+		heading = HEADING(i);
 		bar = i < 10 ? TOPBAR : BOTTOMBAR;
 		
 		if (GET_FLAG(err, i))
-			handle_error_flag(&string_struct, heading);
+			handle_error_flag(&str, heading);
 		// else if (GET_FLAG(updated, i))
 		else if (strlen(val) == 0)
 			continue;
 		else
-			format_string(&string_struct, heading, val, i);
+			format_string(&str, heading, val, i);
 		if (i == TODO)
-			trunc_TODO_string(&string_struct);
+			trunc_TODO_string(str);
 		
-		strncat(STRING(bar), string_struct.data, BAR_LENGTH - (strlen(STRING(bar) + 1)));
+		strncat(STRING(bar), str, BAR_LENGTH - (strlen(STRING(bar) + 1)));
+		free(str);
 	}
 			
 	center_bottom_bar(STRING(BOTTOMBAR));
@@ -134,7 +129,6 @@ handle_strings(Display *dpy, Window root)
 	if (!XFlush(dpy))
 		ERR(STATUSBAR, "error with XFlush() in handle_strings()", -1)
 	
-	free(string_struct.data);
 	return 0;
 }
 
