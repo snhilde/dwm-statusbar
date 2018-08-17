@@ -593,6 +593,8 @@ get_portfolio(void)
 	if (GET_FLAG(err, PORTFOLIO))
 		return -1;
 	
+	snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
+			
 	switch (run_or_skip()) {
 		case 0: break;
 		case 1: return 0;
@@ -602,12 +604,8 @@ get_portfolio(void)
 	if (!memset(STRING(PORTFOLIO), '\0', STRING_LENGTH))
 		ERR(PORTFOLIO, "error resetting portfolio string in get_portfolio()", -1)
 			
-	snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%cN/A ",
-			COLOR_HEADING, COLOR_NORMAL);
-			
 	struct data_struct portfolio_jstruct;
 	static double equity;
-	char equity_string[16];
 	
 	curl_easy_reset(sb_curl);
 	
@@ -625,7 +623,6 @@ get_portfolio(void)
 	if (curl_easy_perform(sb_curl) == CURLE_OK) {
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
 			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1)
-		snprintf(equity_string, sizeof equity_string, "%.2lf", equity);
 		
 		snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%c%.2lf ",
 				equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
