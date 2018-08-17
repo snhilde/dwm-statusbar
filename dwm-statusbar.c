@@ -1756,12 +1756,13 @@ get_cpu_ratio(void)
 }
 
 static int
-get_font(char *font)
+get_font(char **ptr)
 {
 	// TODO strncmp() in while() loop should handle commented out lines
 	FILE *fd;
 	char line[256];
 	char *token;
+	char *font;
 	
 	if (!(fd = fopen(DWM_CONFIG_FILE, "r")))
 		ERR(BOTTOMBAR, "error opening dwm config file in get_font()", -1)
@@ -1784,8 +1785,12 @@ get_font(char *font)
 	if (!token)
 		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1)
 			
-	if (!memcpy(font, token, strlen(token)))
+	font = malloc(strlen(token) + 1);
+	if (!font)
+		ERR(BOTTOMBAR, "error allocating memory for font in get_font()", -1)
+	if (!strncpy(font, token, strlen(token)))
 		ERR(BOTTOMBAR, "error storing font in get_font()", -1)
+	*ptr = font;
 	
 	return 0;
 }
@@ -1802,10 +1807,7 @@ get_bar_max_len(Display *dpy)
 	XRectangle rect;
 	
 	width_d = DisplayWidth(dpy, DefaultScreen(dpy));
-	fontname = malloc(256);
-	if (!fontname)
-		ERR(BOTTOMBAR, "error allocating memory for fontname in get_bar_max_len()", -1)
-	if (get_font(fontname) < 0)
+	if (get_font(&fontname) < 0)
 		ERR(BOTTOMBAR, "error getting font in get_bar_max_len()", -1)
 	fontset = XCreateFontSet(dpy, fontname, &miss_list, &count, &def);
 	if (fontset) {
