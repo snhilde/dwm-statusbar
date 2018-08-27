@@ -847,7 +847,7 @@ get_wifi(void)
 		strncpy(ssid_string, "No Connection Initiated", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 5) {
-		strncpy(ssid_string, "Not Connection", STRING_LENGTH - 1);
+		strncpy(ssid_string, "Not Connected", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 6) {
 		if (wifi_connected)
