@@ -543,6 +543,7 @@ get_backup(void)
 			line[strlen(line) - 1] = '\0';
 			strncpy(status, line, len - 1);
 			color = COLOR2;
+			backup_occurring = true;
 		}
 		
 		snprintf(link->info, STRING_LENGTH, "%c %s%c ",
@@ -550,7 +551,6 @@ get_backup(void)
 		
 		SET_FLAG(updated, BACKUP);
 		CHECK_LENGTH(link);
-		backup_occurring = true;
 	}
 		
 	return 0;
