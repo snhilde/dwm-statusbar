@@ -18,6 +18,9 @@ get_string_link(int id)
 static int
 get_padding(char *ptr)
 {
+	if (GET_FLAG(err, BOTTOMBAR))
+		return 0;
+	
 	int pad;
 	
 	if (const_bar_max_len > bottom_length)
@@ -33,11 +36,12 @@ get_padding(char *ptr)
 static int
 format_top_bar(char **ptr)
 {
-	// TODO does not handle the resizing of TODO_string
-	// if ((*ptr - statusbar) > const_bar_max_len - 32) {
-		// memset(statusbar + const_bar_max_len - 35, '.', 3);
-		// *ptr = statusbar + const_bar_max_len - 32;
-	// }
+	if (!(GET_FLAG(err, BOTTOMBAR))) {
+		if ((*ptr - statusbar) > const_bar_max_len - 32) {
+			memset(statusbar + const_bar_max_len - 35, '.', 3);
+			*ptr = statusbar + const_bar_max_len - 32;
+		}
+	}
 	**ptr = ';';
 	(*ptr)++;
 
@@ -90,6 +94,8 @@ copy_string(struct string_link *link, char *start)
 static int
 get_max_TODO_len(struct string_link *link)
 {
+	if (GET_FLAG(err, BOTTOMBAR))
+		return strlen(link->heading) + strlen(link->info);
 	return const_bar_max_len - 32 - *link->bar_len; // 32 for tags on left side
 }
 
@@ -1974,45 +1980,63 @@ get_consts(Display *dpy)
 {
 	int err = 0;
 	
-	if ((const_devidx = get_dev_id()) == 0) {
-		err += -1;
-		SIMPLE_ERR(WIFI, "error getting device id in get_consts()");
+	if (GET_FLAG(func, WIFI)) {
+		if ((const_devidx = get_dev_id()) == 0) {
+			err += -1;
+			SIMPLE_ERR(WIFI, "error getting device id in get_consts()");
+		}
 	}
-	if ((const_block_size = get_block_size()) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(DISK, "error getting block size in get_consts()");
+	if (GET_FLAG(func, DISK)) {
+		if ((const_block_size = get_block_size()) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(DISK, "error getting block size in get_consts()");
+		}
 	}
 	if ((const_bar_max_len = get_bar_max_len(dpy)) < 0 ) {
 		err += -1;
 		SIMPLE_ERR(BOTTOMBAR, "error calculating maximum bar length in get_consts()");
+		}
+	if (GET_FLAG(func, CPU_USAGE)) {
+		if ((const_cpu_ratio = get_cpu_ratio()) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(CPU_USAGE, "error calculating CPU ratio in get_consts()");
+		}
 	}
-	if ((const_cpu_ratio = get_cpu_ratio()) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(CPU_USAGE, "error calculating CPU ratio in get_consts()");
+	if (GET_FLAG(func, CPU_TEMP)) {
+		if ((const_temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(CPU_TEMP, "error getting maximum temp in get_consts()");
+		}
 	}
-	if ((const_temp_max = get_gen_consts(CPU_TEMP_DIR, "temp", "max")) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(CPU_TEMP, "error getting maximum temp in get_consts()");
+	if (GET_FLAG(func, FAN)) {
+		if ((const_fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(FAN, "error getting minimum fan speed in get_consts()");
+		}
 	}
-	if ((const_fan_min = get_gen_consts(FAN_SPEED_DIR, "fan", "min")) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(FAN, "error getting minimum fan speed in get_consts()");
+	if (GET_FLAG(func, FAN)) {
+		if ((const_fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(FAN, "error getting maximum fan speed in get_consts()");
+		}
 	}
-	if ((const_fan_max = get_gen_consts(FAN_SPEED_DIR, "fan", "max")) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(FAN, "error getting maximum fan speed in get_consts()");
+	if (GET_FLAG(func, BRIGHTNESS)) {
+		if ((const_screen_brightness_max = get_brightness_max(SCREEN_BRIGHTNESS_FILE)) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(BRIGHTNESS, "error getting maximum screen brightness in get_consts()");
+		}
 	}
-	if ((const_screen_brightness_max = get_brightness_max(SCREEN_BRIGHTNESS_FILE)) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(BRIGHTNESS, "error getting maximum screen brightness in get_consts()");
+	if (GET_FLAG(func, BRIGHTNESS)) {
+		if ((const_kbd_brightness_max = get_brightness_max(KBD_BRIGHTNESS_FILE)) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(BRIGHTNESS, "error getting maximum keyboard brightness in get_consts()");
+		}
 	}
-	if ((const_kbd_brightness_max = get_brightness_max(KBD_BRIGHTNESS_FILE)) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(BRIGHTNESS, "error getting maximum keyboard brightness in get_consts()");
-	}
-	if ((const_vol_range = get_vol_range()) < 0 ) {
-		err += -1;
-		SIMPLE_ERR(VOLUME, "error getting volume range in get_consts()");
+	if (GET_FLAG(func, VOLUME)) {
+		if ((const_vol_range = get_vol_range()) < 0 ) {
+			err += -1;
+			SIMPLE_ERR(VOLUME, "error getting volume range in get_consts()");
+		}
 	}
 			
 	return err;
@@ -2021,14 +2045,15 @@ get_consts(Display *dpy)
 static int
 populate_lists(void)
 {
-	int err = 0;
-	if (!(therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input"))) {
+	int err;
+	
+	if (GET_FLAG(func, CPU_TEMP) && !(therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input"))) {
 		err = -1;
-		ERR(CPU_TEMP, "error creating list of CPU temperature sensors in populate_lists()", -1);
+		SIMPLE_ERR(CPU_TEMP, "error creating list of CPU temperature sensors in populate_lists()");
 	}
-	if (!(fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input"))) {
-		err += -1;
-		ERR(FAN, "error creating list of fan speed sensors in populate_lists()", -1);
+	if (GET_FLAG(func, FAN) && !(fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input"))) {
+		err = -1;
+		SIMPLE_ERR(FAN, "error creating list of fan speed sensors in populate_lists()");
 	}
 	
 	return err;
@@ -2110,15 +2135,21 @@ make_singletons(void)
 {
 	int err = 0;
 	
-	if ((err += make_curl_singleton()) < 0) {
-		SET_FLAG(err, WEATHER);
-		ERR(PORTFOLIO, "error making curl singleton in make_singletons()", -1);
+	if (GET_FLAG(func, WEATHER) || GET_FLAG(func, PORTFOLIO)) {
+		if ((err += make_curl_singleton()) < 0) {
+			SET_FLAG(err, WEATHER);
+			ERR(PORTFOLIO, "error making curl singleton in make_singletons()", -1);
+		}
 	}
-	if ((err += make_wifi_singleton()) < 0) {
-		ERR(WIFI, "error making wifi singleton in make_singletons()", -1);
+	if (GET_FLAG(func, WIFI)) {
+		if ((err += make_wifi_singleton()) < 0) {
+			ERR(WIFI, "error making wifi singleton in make_singletons()", -1);
+		}
 	}
-	if ((err += make_vol_singleton()) < 0) {
-		ERR(VOLUME, "error making volume singleton in make_singletons()", -1);
+	if (GET_FLAG(func, VOLUME)) {
+		if ((err += make_vol_singleton()) < 0) {
+			ERR(VOLUME, "error making volume singleton in make_singletons()", -1);
+		}
 	}
 	
 	return err;
@@ -2278,7 +2309,7 @@ init(Display *dpy, Window root)
 		internet_connected = true;
 	err += populate_lists();
 	err += get_consts(dpy);
-	err += init_portfolio();
+	if (GET_FLAG(func, PORTFOLIO)) err += init_portfolio();
 	
 	if (GET_FLAG(func, LOG)) get_log();
 	if (GET_FLAG(func, TODO)) get_TODO();
