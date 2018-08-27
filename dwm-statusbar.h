@@ -115,14 +115,13 @@
 
 #define SIMPLE_ERR(id, val) \
 	{ SET_FLAG(err, id); \
+	SET_FLAG(updated, id); \
 	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); }
 
 #define ERR(id, val, ret) \
-	{ SET_FLAG(err, id); \
+	{ SIMPLE_ERR(id, val) \
 	strncpy(get_string_link(id)->info, error_string, get_length(get_string_link(id))); \
-	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
-	perror("\tError"); \
 	return ret; }
 
 struct data_struct {

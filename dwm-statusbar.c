@@ -436,7 +436,7 @@ get_weather(void)
 			}
 			need_to_get_weather = false;
 		} else
-			break;
+			ERR(WEATHER, "error performing curl_easy_perform() in get_weather()", -1);
 		
 		free(json_structs[i].data);
 	}
