@@ -1380,21 +1380,23 @@ get_volume(void)
 		return -1;
 	
 	struct string_link *link;
-	long pvol;
 	int swch, volperc;
-	static int old_vol;
+	long pvol;
+	static int old_swch, old_perc;
 	
 	link = get_string_link(VOLUME);
 	if (!link)
 		ERR(VOLUME, "error getting string link in get_volume()", -1);
 	
+	snd_mixer_handle_events(handle);	// reloads control
 	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
 		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1);
-	if (!swch) {
-		if (!old_vol && link->len)
+	swch++;		// because comparisons with 0 gets cumbersome on initialization
+	if (swch == 1) {
+		if (old_swch == swch)
 			return 0;
 		else {
-			old_vol = swch;
+			old_swch = swch;
 			
 			snprintf(link->info, STRING_LENGTH, "%cmute%c ",
 					COLOR_NORMAL, COLOR_NORMAL);
@@ -1410,8 +1412,8 @@ get_volume(void)
 		volperc = (double)pvol / const_vol_range * 100;
 		volperc = rint((float)volperc / 10) * 10;
 		
-		if (old_vol != volperc) {
-			old_vol = volperc;
+		if (old_perc != volperc) {
+			old_perc = volperc;
 		
 			snprintf(link->info, STRING_LENGTH, "%c%3d%%%c ",
 					COLOR_NORMAL, volperc, COLOR_NORMAL);
@@ -2060,7 +2062,7 @@ make_vol_singleton(void)
 			
 	// if (snd_mixer_close(handle))
 		// ERR(VOLUME, "error closing handle in make_vol_singleton()", -1);
-	snd_config_update_free_global();
+	// snd_config_update_free_global();
 	
 	return 0;
 }
