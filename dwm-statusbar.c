@@ -1631,17 +1631,12 @@ static int
 check_conn(void)
 {
 	curl_easy_reset(sb_curl);
-	CURLcode code;
 	
-	curl_easy_setopt(sb_curl, CURLOPT_URL, "https://www.google.com/");
-	curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, discard_callback);
-	code = curl_easy_perform(sb_curl);
-	if (code == CURLE_OK)
-		internet_connected = true;
-	else
-		internet_connected = false;
+	if (curl_easy_setopt(sb_curl, CURLOPT_URL, "https://www.google.com/") ||
+		curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, discard_callback) != CURLE_OK)
+		return -1;
 	
-	return 0;
+	return curl_easy_perform(sb_curl);
 }
 
 static int
@@ -2279,7 +2274,8 @@ init(Display *dpy, Window root)
 	if (populate_string_list() < 0)
 		exit(1);
 	err += make_singletons();
-	err += check_conn();
+	if (!check_conn())
+		internet_connected = true;
 	err += populate_lists();
 	err += get_consts(dpy);
 	err += init_portfolio();
