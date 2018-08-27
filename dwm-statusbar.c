@@ -899,6 +899,7 @@ get_time(void)
 		return -1;
 	
 	struct string_link *link;
+	static bool toggle;
 	
 	link = get_string_link(TIME);
 	if (!link)
@@ -906,9 +907,10 @@ get_time(void)
 	
 	if (strftime(link->info, STRING_LENGTH,  "%b %d - %I:%M", tm_struct) == 0)
 		ERR(TIME, "error with strftime() in get_time()", -1);
-	if (tm_struct->tm_sec % 2)
+	if (toggle)
 		link->info[strlen(link->info) - 3] = ' ';
 	
+	toggle = !toggle;
 	SET_FLAG(updated, TIME);
 	CHECK_LENGTH(link);
 	
@@ -1151,73 +1153,65 @@ get_cpu_usage(void)
 	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
 	/* from top.c */
 	struct string_link *link;
+	int i;
 	FILE *fd;
 	char line[64];
-	int working_new = 0, working_old = 0, total_new = 0, total_old = 0;
-	int working_diff, total_diff, total;
-	int i;
-	static int old_total;
+	int cpu[2][7];
+	int working[2] = {0, 0}, total[2] = {0, 0};
+	int working_diff, total_diff, perc;
+	static int old_perc;
 	
 	link = get_string_link(CPU_USAGE);
 	if (!link)
 		ERR(CPU_USAGE, "error getting string link in get_cpu_usage()", -1);
 	
-	static struct {
-		int old[7];
-		int new[7];
-	} cpu;
 	
-	if (const_cpu_ratio < 0)
-		const_cpu_ratio = 1;
-
-	fd = fopen(CPU_USAGE_FILE, "r");
-	if (!fd)
-		ERR(CPU_USAGE, "error opening CPU usage file in get_cpu_usage()", -1);
-	fgets(line, 64, fd);
-	if (fclose(fd))
-		ERR(CPU_USAGE, "error closing CPU usage file in get_cpu_usage()", -1);
-	
-	/* from /proc/stat, cpu time spent in each mode:
-	line 1: user mode
-	line 2: nice user mode
-	line 3: system mode
-	line 4: idle mode
-	line 5: time spent waiting for I/O to complete
-	line 6: time spent on interrupts
-	line 7: time servicing softirqs */
-	sscanf(line, "cpu %d %d %d %d", &cpu.new[0], &cpu.new[1], &cpu.new[2], &cpu.new[3],
-			&cpu.new[4], &cpu.new[5], &cpu.new[6]);
-
-	// exclude first run
-	if (cpu.old[0]) {
-		for (i = 0; i < 7; i++) {
-			total_new += cpu.new[i];
-			total_old += cpu.old[i];
-			
-			if (i == 3) continue;	// skip idle time
-			
-			working_new += cpu.new[i];
-			working_old += cpu.old[i];
-		}
+	for (i = 0; i < 2; i++) {
+		fd = fopen(CPU_USAGE_FILE, "r");
+		if (!fd)
+			ERR(CPU_USAGE, "error opening CPU usage file in get_cpu_usage()", -1);
+		fgets(line, 64, fd);
+		if (fclose(fd))
+			ERR(CPU_USAGE, "error closing CPU usage file in get_cpu_usage()", -1);
 		
-		working_diff = working_new - working_old + 1;
-		total_diff = total_new - total_old + 1;
+		/* from /proc/stat, cpu time spent in each mode:
+		line 1: user mode
+		line 2: nice user mode
+		line 3: system mode
+		line 4: idle mode
+		line 5: time spent waiting for I/O to complete
+		line 6: time spent on interrupts
+		line 7: time servicing softirqs */
+		sscanf(line, "cpu %d %d %d %d %d %d %d", &cpu[i][0], &cpu[i][1], &cpu[i][2], &cpu[i][3],
+				&cpu[i][4], &cpu[i][5], &cpu[i][6]);
 		
-		total = rint((double)working_diff / (double)total_diff * 100);
-		total *= const_cpu_ratio;
+		if (!i) sleep(1);
 	}
+
+	for (i = 0; i < 7; i++) {
+		total[0] += cpu[0][i];
+		total[1] += cpu[1][i];
+		
+		if (i == 3) continue;	// skip idle time
+		
+		working[0] += cpu[0][i];
+		working[1] += cpu[1][i];
+	}
+		
+	working_diff = working[1] - working[0] + 1;
+	total_diff = total[1] - total[0] + 1;
 	
-	for (i = 0; i < 7; i++)
-		cpu.old[i] = cpu.new[i];
+	perc = rint((double)working_diff / (double)total_diff * 100);
+	perc *= const_cpu_ratio;
 	
-	if (total >= 100) total = 99;
+	if (perc >= 100) perc = 99;
 	
-	if (old_total != total) {
-		old_total = total;
+	if (old_perc != perc) {
+		old_perc = perc;
 		
 		snprintf(link->info, STRING_LENGTH, "%c %2d%%%c ",
-				total >= 75 ? COLOR_WARNING : COLOR_NORMAL,
-				total, COLOR_NORMAL);
+				perc >= 75 ? COLOR_WARNING : COLOR_NORMAL,
+				perc, COLOR_NORMAL);
 		
 		SET_FLAG(updated, CPU_USAGE);
 		CHECK_LENGTH(link);
@@ -1721,7 +1715,7 @@ loop(Display *dpy, Window root)
 		}
 		
 		err += handle_strings(dpy, root);
-		err += sleep(1);
+		if (!(GET_FLAG(func, CPU_USAGE))) err += sleep(1);
 	}
 	
 	return err;
