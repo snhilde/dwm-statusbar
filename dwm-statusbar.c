@@ -370,7 +370,7 @@ parse_weather_json(char *raw_json, char *info)
 	return 0;
 }
 	
-static size_t
+size_t
 curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
 {
 	const size_t received_size = size * nmemb;
