@@ -76,7 +76,7 @@ copy_string(struct string_link *link, char *start)
 	}
 	
 	if (total_len != head_len + info_len)
-		ERR(link->id, "error calculating correct lengths in copy_string()", 0)
+		ERR(link->id, "error calculating correct lengths in copy_string()", 0);
 	
 	memcpy(start, link->heading, head_len);
 	memcpy(start + head_len, link->info, info_len);
@@ -92,7 +92,7 @@ handle_TODO(void)
 	
 	link = get_string_link(TODO);
 	if (!link)
-		ERR(TODO, "error getting TODO link in handle_TODO()", -1)
+		ERR(TODO, "error getting TODO link in handle_TODO()", -1);
 			
 	new_len = MIN(strlen(link->heading) + strlen(link->info),
 					const_bar_max_len - 32 - *link->bar_len); // 32 for tags on left side
@@ -136,9 +136,9 @@ handle_strings(Display *dpy, Window root)
 	update_all = false;
 	
 	if (!XStoreName(dpy, root, statusbar))
-		ERR(STATUSBAR, "error with XStoreName() in handle_strings()", -1)
+		ERR(STATUSBAR, "error with XStoreName() in handle_strings()", -1);
 	if (!XFlush(dpy))
-		ERR(STATUSBAR, "error with XFlush() in handle_strings()", -1)
+		ERR(STATUSBAR, "error with XFlush() in handle_strings()", -1);
 	
 	return 0;
 }
@@ -157,12 +157,12 @@ get_log(void)
 
 	link = get_string_link(LOG);
 	if (!link)
-		ERR(LOG, "error getting string link in get_log()", -1)
+		ERR(LOG, "error getting string link in get_log()", -1);
 	
 	if (stat(DWM_LOG_FILE, &dwm_stat) < 0)
-		ERR(LOG, "error getting dwm.log file stats in get_log()", -1)
+		ERR(LOG, "error getting dwm.log file stats in get_log()", -1);
 	if (stat(STATUSBAR_LOG_FILE, &sb_stat) < 0)
-		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1)
+		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1);
 			
 	mtime = MAX(dwm_stat.st_mtime, sb_stat.st_mtime);
 	if (old_mtime != mtime) {
@@ -190,7 +190,7 @@ get_TODO(void)
 	struct stat file_stat;
 	static long old_mtime;
 	if (stat(TODO_FILE, &file_stat) < 0)
-		ERR(TODO, "error getting TODO file stats in get_TODO()", -1)
+		ERR(TODO, "error getting TODO file stats in get_TODO()", -1);
 	if (old_mtime != file_stat.st_mtime) {
 		old_mtime = file_stat.st_mtime;
 		
@@ -201,11 +201,11 @@ get_TODO(void)
 		
 		link = get_string_link(TODO);
 		if (!link)
-			ERR(TODO, "error getting string link in get_TODO()", -1)
+			ERR(TODO, "error getting string link in get_TODO()", -1);
 	
 		fd = fopen(TODO_FILE, "r");
 		if (!fd)
-			ERR(TODO, "error opening TODO file in get_TODO()", -1)
+			ERR(TODO, "error opening TODO file in get_TODO()", -1);
 				
 		// line 1
 		if (!fgets(line, STRING_LENGTH, fd)) {
@@ -237,7 +237,7 @@ get_TODO(void)
 		}
 		
 		if (fclose(fd))
-			ERR(TODO, "error closing TODO file in get_TODO()", -1)
+			ERR(TODO, "error closing TODO file in get_TODO()", -1);
 				
 		SET_FLAG(updated, TODO);
 	}
@@ -294,7 +294,7 @@ parse_forecast_json(char *raw_json, char *info)
 	
 	list_array = cJSON_GetObjectItem(parsed_json, "list");
 	if (!list_array)
-		ERR(WEATHER, "error finding 'list' in forecast json in parse_forecast_json()", -1)
+		ERR(WEATHER, "error finding 'list' in forecast json in parse_forecast_json()", -1);
 	cJSON_ArrayForEach(list_child, list_array) {
 		int f_day = get_index(cJSON_GetObjectItem(list_child, "dt"));
 		if (f_day > 3)
@@ -302,10 +302,10 @@ parse_forecast_json(char *raw_json, char *info)
 		
 		main_dict = cJSON_GetObjectItem(list_child, "main");
 		if (!main_dict)
-			ERR(WEATHER, "error finding 'main_dict' in forecast json in parse_forecast_json()", -1)
+			ERR(WEATHER, "error finding 'main_dict' in forecast json in parse_forecast_json()", -1);
 		temp_obj = cJSON_GetObjectItem(main_dict, "temp");
 		if (!temp_obj)
-			ERR(WEATHER, "error finding 'temp_obj' in forecast json in parse_forecast_json()", -1)
+			ERR(WEATHER, "error finding 'temp_obj' in forecast json in parse_forecast_json()", -1);
 		data[f_day].high = (int)fmax(data[f_day].high, temp_obj->valueint);
 		data[f_day].low = (int)fmin(data[f_day].low, temp_obj->valueint);
 		
@@ -347,21 +347,21 @@ parse_weather_json(char *raw_json, char *info)
 	
 	main_dict = cJSON_GetObjectItem(parsed_json, "main");
 	if (!main_dict)
-		ERR(WEATHER, "error finding 'main' in weather json in parse_weather_json()", -1)
+		ERR(WEATHER, "error finding 'main' in weather json in parse_weather_json()", -1);
 	temp_obj = cJSON_GetObjectItem(main_dict, "temp");
 	if (!temp_obj)
-		ERR(WEATHER, "error finding 'temp' in weather json in parse_weather_json()", -1)
+		ERR(WEATHER, "error finding 'temp' in weather json in parse_weather_json()", -1);
 	temp_today = temp_obj->valueint;
 	
 	weather_dict = cJSON_GetObjectItem(parsed_json, "weather");
 	if (!weather_dict)
-		ERR(WEATHER, "error finding 'weather' in weather json in parse_weather_json()", -1)
+		ERR(WEATHER, "error finding 'weather' in weather json in parse_weather_json()", -1);
 	weather_dict = weather_dict->child;
 	if (!weather_dict)
-		ERR(WEATHER, "error finding 'weather' in weather json in parse_weather_json()", -1)
+		ERR(WEATHER, "error finding 'weather' in weather json in parse_weather_json()", -1);
 	id = cJSON_GetObjectItem(weather_dict, "id")->valueint;
 	if (!id)
-		ERR(WEATHER, "error getting id from weather json in parse_weather_json()", -1)
+		ERR(WEATHER, "error getting id from weather json in parse_weather_json()", -1);
 	
 	snprintf(info, STRING_LENGTH, "%c %2d F",
 			id < 800 ? COLOR_WARNING : COLOR_NORMAL, temp_today);
@@ -402,7 +402,7 @@ get_weather(void)
 	
 	link = get_string_link(WEATHER);
 	if (!link)
-		ERR(WEATHER, "error getting string link in get_weather()", -1)
+		ERR(WEATHER, "error getting string link in get_weather()", -1);
 	
 	snprintf(link->info, STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
 	if (!wifi_connected) {
@@ -425,14 +425,14 @@ get_weather(void)
 				curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 				curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 				curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &json_structs[i]) != CURLE_OK)
-			ERR(WEATHER, "error with curl_easy_setops() in get_weather()", -1)
+			ERR(WEATHER, "error with curl_easy_setops() in get_weather()", -1);
 		if (curl_easy_perform(sb_curl) == CURLE_OK) {
 			if (!i) {
 				if (parse_weather_json(json_structs[i].data, link->info) < 0)
-					ERR(WEATHER, "error parsing weather json in get_weather()", -1)
+					ERR(WEATHER, "error parsing weather json in get_weather()", -1);
 			} else {
 				if (parse_forecast_json(json_structs[i].data, link->info) < 0)
-					ERR(WEATHER, "error parsing forecast json in get_weather()", -1)
+					ERR(WEATHER, "error parsing forecast json in get_weather()", -1);
 			}
 			need_to_get_weather = false;
 		} else
@@ -482,7 +482,7 @@ get_backup(void)
 	static long old_mtime;
 	
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
-		ERR(BACKUP, "error getting backup file stats in get_backup()", -1)
+		ERR(BACKUP, "error getting backup file stats in get_backup()", -1);
 	if (old_mtime != file_stat.st_mtime) {
 		old_mtime = file_stat.st_mtime;
 		backup_occurring = false;
@@ -496,18 +496,18 @@ get_backup(void)
 		
 		link = get_string_link(BACKUP);
 		if (!link)
-			ERR(BACKUP, "error getting string link in get_backup()", -1)
+			ERR(BACKUP, "error getting string link in get_backup()", -1);
 		
 		len = sizeof status;
 		
 		if (!(fd = fopen(BACKUP_STATUS_FILE, "r")))
-			ERR(BACKUP, "error opening backup status file in get_backup()", -1)
+			ERR(BACKUP, "error opening backup status file in get_backup()", -1);
 				
 		if (!fgets(line, 32, fd))
-			ERR(BACKUP, "backup history file is empty in get_backup()", -1)
+			ERR(BACKUP, "backup history file is empty in get_backup()", -1);
 				
 		if (fclose(fd))
-			ERR(BACKUP, "error closing backup status file in get_backup()", -1)
+			ERR(BACKUP, "error closing backup status file in get_backup()", -1);
 				
 		if (isdigit(line[0])) {
 			sscanf(line, "%d", &value);
@@ -551,11 +551,11 @@ parse_portfolio_json(char *raw_json)
 	
 	equity_obj = cJSON_GetObjectItem(parsed_json, "equity");
 	if (!equity_obj)
-		ERR(PORTFOLIO, "error finding 'equity' in portfolio json in parse_portfolio_json()", -1)
+		ERR(PORTFOLIO, "error finding 'equity' in portfolio json in parse_portfolio_json()", -1);
 	
 	extended_hours_equity_obj = cJSON_GetObjectItem(parsed_json, "extended_hours_equity");
 	if (!extended_hours_equity_obj)
-		ERR(PORTFOLIO, "error finding 'extended_hours_equity' in portfolio json in parse_portfolio_json()", -1)
+		ERR(PORTFOLIO, "error finding 'extended_hours_equity' in portfolio json in parse_portfolio_json()", -1);
 	
 	if (!extended_hours_equity_obj->valuestring)
 		equity_f = atof(equity_obj->valuestring);
@@ -565,7 +565,7 @@ parse_portfolio_json(char *raw_json)
 	if (need_equity_previous_close) {
 		equity_previous_close_obj = cJSON_GetObjectItem(parsed_json, "equity_previous_close");
 		if (!equity_previous_close_obj)
-			ERR(PORTFOLIO, "error finding 'equity_previous_close' in portfolio json in parse_portfolio_json()", -1)
+			ERR(PORTFOLIO, "error finding 'equity_previous_close' in portfolio json in parse_portfolio_json()", -1);
 		equity_previous_close = atof(equity_previous_close_obj->valuestring);
 		need_equity_previous_close = false;
 	}
@@ -642,7 +642,7 @@ get_portfolio(void)
 	
 	link = get_string_link(PORTFOLIO);
 	if (!link)
-		ERR(PORTFOLIO, "error getting string link in get_portfolio()", -1)
+		ERR(PORTFOLIO, "error getting string link in get_portfolio()", -1);
 	
 	switch (run_or_skip()) {
 		case 0: break;
@@ -665,10 +665,10 @@ get_portfolio(void)
 			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &portfolio_jstruct) != CURLE_OK)
-		ERR(PORTFOLIO, "error with curl_easy_setops() in get_portfolio()", -1)
+		ERR(PORTFOLIO, "error with curl_easy_setops() in get_portfolio()", -1);
 	if (curl_easy_perform(sb_curl) == CURLE_OK) {
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
-			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1)
+			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1);
 				
 		if (old_equity != equity) {
 			old_equity = equity;
@@ -788,15 +788,15 @@ ip_check(int flag)
 	int rv;
 	
 	if (rtnl_wilddump_request(&sb_rth, AF_PACKET, RTM_GETLINK) < 0)
-		ERR(WIFI, "error with rtnl_wilddump_request() in ip_check()", -1)
+		ERR(WIFI, "error with rtnl_wilddump_request() in ip_check()", -1);
 	if (rtnl_dump_filter(&sb_rth, store_nlmsg, &linfo) < 0)
-		ERR(WIFI, "error with rtnl_dump_filter() in ip_check()", -1)
+		ERR(WIFI, "error with rtnl_dump_filter() in ip_check()", -1);
 	
 	head = linfo;
 	for (int i = 1; i < const_devidx; i++, linfo = linfo->next);
 	ifi = NLMSG_DATA(&linfo->h);
 	if (!ifi)
-		ERR(WIFI, "error initializing ifi in ip_check()", -1)
+		ERR(WIFI, "error initializing ifi in ip_check()", -1);
 			
 	len = linfo->h.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
 	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
@@ -826,7 +826,7 @@ get_wifi(void)
 	
 	link = get_string_link(WIFI);
 	if (!link)
-		ERR(WIFI, "error getting string link in get_wifi()", -1)
+		ERR(WIFI, "error getting string link in get_wifi()", -1);
 	
 	ifi_flag = ip_check(0);
 	if (ifi_flag == -1) return -1;
@@ -835,7 +835,7 @@ get_wifi(void)
 	
 	ssid_string = calloc(1, STRING_LENGTH);
 	if (!ssid_string)
-		ERR(WIFI, "error allocating memory for ssid_string in get_wifi()", -1)
+		ERR(WIFI, "error allocating memory for ssid_string in get_wifi()", -1);
 	
 	if (ifi_flag == 0 && op_state == 2) {
 		strncpy(ssid_string, "Wireless Device Set Down", STRING_LENGTH - 1);
@@ -855,10 +855,10 @@ get_wifi(void)
 	
 		genlmsg_put(sb_msg, 0, 0, sb_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
 		if (nla_put(sb_msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &const_devidx) < 0)
-			ERR(WIFI, "error with nla_put() in get_wifi()", -1)
+			ERR(WIFI, "error with nla_put() in get_wifi()", -1);
 		nl_send_auto_complete(sb_socket, sb_msg);
 		if (nl_cb_set(sb_cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
-			ERR(WIFI, "error with nla_cb_set() in get_wifi()", -1)
+			ERR(WIFI, "error with nla_cb_set() in get_wifi()", -1);
 		if (nl_recvmsgs(sb_socket, sb_cb) < 0)
 			strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
 		else
@@ -866,7 +866,7 @@ get_wifi(void)
 
 		wifi_connected = true;
 	} else
-		ERR(WIFI, "error finding wifi status in get_wifi()", -1)
+		ERR(WIFI, "error finding wifi status in get_wifi()", -1);
 			
 	format_wifi_status(ssid_string, link->info, color);
 	SET_FLAG(updated, WIFI);		
@@ -886,10 +886,10 @@ get_time(void)
 	
 	link = get_string_link(TIME);
 	if (!link)
-		ERR(TIME, "error getting string link in get_time()", -1)
+		ERR(TIME, "error getting string link in get_time()", -1);
 	
 	if (strftime(link->info, STRING_LENGTH,  "%b %d - %I:%M", tm_struct) == 0)
-		ERR(TIME, "error with strftime() in get_time()", -1)
+		ERR(TIME, "error with strftime() in get_time()", -1);
 	if (tm_struct->tm_sec % 2)
 		link->info[strlen(link->info) - 3] = ' ';
 	
@@ -947,15 +947,15 @@ get_network(void)
 	
 	link = get_string_link(NETWORK);
 	if (!link)
-		ERR(NETWORK, "error getting string link in get_network()", -1)
+		ERR(NETWORK, "error getting string link in get_network()", -1);
 	
 	for (int i = 0; i < 2; i++) {
 		fd = fopen(files[i], "r");
 		if (!fd)
-			ERR(NETWORK, "error opening a network file in get_network()", -1)
+			ERR(NETWORK, "error opening a network file in get_network()", -1);
 		fgets(line, 64, fd);
 		if (fclose(fd))
-			ERR(NETWORK, "error closing a network file in get_network()", -1)
+			ERR(NETWORK, "error closing a network file in get_network()", -1);
 		
 		if (i) {
 			sscanf(line, "%d", &tx_new);
@@ -1036,10 +1036,10 @@ get_disk(void)
 
 	link = get_string_link(DISK);
 	if (!link)
-		ERR(DISK, "error getting string link in get_disk()", -1)
+		ERR(DISK, "error getting string link in get_disk()", -1);
 	
 	if (statvfs("/", &root_fs.fs_stat) < 0)
-		ERR(DISK, "error getting filesystem stats in get_disk()", -1)
+		ERR(DISK, "error getting filesystem stats in get_disk()", -1);
 	
 	process_stat(&root_fs);
 	rootperc = rint((double)root_fs.bytes_used / (double)root_fs.bytes_total * 100);
@@ -1071,7 +1071,7 @@ get_RAM(void)
 
 	link = get_string_link(RAM);
 	if (!link)
-		ERR(RAM, "error getting string link in get_RAM()", -1)
+		ERR(RAM, "error getting string link in get_RAM()", -1);
 	
 	meminfo();
 	
@@ -1105,7 +1105,7 @@ get_load(void)
 	
 	link = get_string_link(LOAD);
 	if (!link)
-		ERR(LOAD, "error getting string link in get_load()", -1)
+		ERR(LOAD, "error getting string link in get_load()", -1);
 	
 	getloadavg(loadavg, 3);
 	
@@ -1144,7 +1144,7 @@ get_cpu_usage(void)
 	
 	link = get_string_link(CPU_USAGE);
 	if (!link)
-		ERR(CPU_USAGE, "error getting string link in get_cpu_usage()", -1)
+		ERR(CPU_USAGE, "error getting string link in get_cpu_usage()", -1);
 	
 	static struct {
 		int old[7];
@@ -1156,10 +1156,10 @@ get_cpu_usage(void)
 
 	fd = fopen(CPU_USAGE_FILE, "r");
 	if (!fd)
-		ERR(CPU_USAGE, "error opening CPU usage file in get_cpu_usage()", -1)
+		ERR(CPU_USAGE, "error opening CPU usage file in get_cpu_usage()", -1);
 	fgets(line, 64, fd);
 	if (fclose(fd))
-		ERR(CPU_USAGE, "error closing CPU usage file in get_cpu_usage()", -1)
+		ERR(CPU_USAGE, "error closing CPU usage file in get_cpu_usage()", -1);
 	
 	/* from /proc/stat, cpu time spent in each mode:
 	line 1: user mode
@@ -1255,10 +1255,10 @@ get_cpu_temp(void)
 	
 	link = get_string_link(CPU_TEMP);
 	if (!link)
-		ERR(CPU_TEMP, "error getting string link in get_cpu_temp()", -1)
+		ERR(CPU_TEMP, "error getting string link in get_cpu_temp()", -1);
 	
 	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count) < 0)
-		ERR(CPU_TEMP, "error traversing list in get_cpu_temp()", -1)
+		ERR(CPU_TEMP, "error traversing list in get_cpu_temp()", -1);
 	
 	temp = total / count;
 	
@@ -1292,10 +1292,10 @@ get_fan(void)
 	
 	link = get_string_link(FAN);
 	if (!link)
-		ERR(FAN, "error getting string link in get_fan()", -1)
+		ERR(FAN, "error getting string link in get_fan()", -1);
 	
 	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count) < 0)
-		ERR(FAN, "error traversing list in get_fan()", -1)
+		ERR(FAN, "error traversing list in get_fan()", -1);
 			
 	rpm /= count;
 	rpm -= const_fan_min;
@@ -1343,10 +1343,10 @@ get_brightness(void)
 		FILE *fd;
 		fd = fopen(b_files[i], "r");
 		if (!fd)
-			ERR(BRIGHTNESS, "error opening a file in get_brightness()", -1)
+			ERR(BRIGHTNESS, "error opening a file in get_brightness()", -1);
 		fscanf(fd, "%d", i == 0 ? &scrn : &kbd);
 		if (fclose(fd))
-			ERR(BRIGHTNESS, "error closing a file in get_brightness()", -1)
+			ERR(BRIGHTNESS, "error closing a file in get_brightness()", -1);
 	}
 	
 	scrn_perc = rint((double)scrn / (double)const_screen_brightness_max * 100);
@@ -1388,7 +1388,7 @@ get_volume(void)
 		ERR(VOLUME, "error getting string link in get_volume()", -1);
 	
 	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
-		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1)
+		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1);
 	if (!swch) {
 		if (!old_vol && link->len)
 			return 0;
@@ -1403,7 +1403,7 @@ get_volume(void)
 		}
 	} else {
 		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
-			ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume() in get_volume()", -1)
+			ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume() in get_volume()", -1);
 				
 		// round to the nearest ten
 		volperc = (double)pvol / const_vol_range * 100;
@@ -1443,10 +1443,10 @@ get_battery(void)
 	
 	fd = fopen(BATT_STATUS_FILE, "r");
 	if (!fd)
-		ERR(BATTERY, "error opening battery status file in get_battery()", -1)
+		ERR(BATTERY, "error opening battery status file in get_battery()", -1);
 	fscanf(fd, "%s", &status_string);
 	if (fclose(fd))
-		ERR(BATTERY, "error closing battery status file in get_battery()", -1)
+		ERR(BATTERY, "error closing battery status file in get_battery()", -1);
 
 	if (!strcmp(status_string, "Full") || !strcmp(status_string, "Unknown")) {
 		if (!old_status && link->len)
@@ -1469,14 +1469,14 @@ get_battery(void)
 	else if (!strcmp(status_string, "Charging"))
 		status = 1;
 	else
-		ERR(BATTERY, "error parsing battery status file in get_battery()", -1)
+		ERR(BATTERY, "error parsing battery status file in get_battery()", -1);
 		
 	fd = fopen(BATT_CAPACITY_FILE, "r");
 	if (!fd)
-		ERR(BATTERY, "error opening battery capacity file in get_battery()", -1)
+		ERR(BATTERY, "error opening battery capacity file in get_battery()", -1);
 	fscanf(fd, "%d", &capacity);
 	if (fclose(fd))
-		ERR(BATTERY, "error closing battery capacity file in get_battery()", -1)
+		ERR(BATTERY, "error closing battery capacity file in get_battery()", -1);
 	
 	if (capacity > 99)
 		capacity = 99;
@@ -1503,13 +1503,13 @@ parse_account_number_json(char *raw_json)
 	
 	results = cJSON_GetObjectItem(parsed_json, "results");
 	if (!results)
-		ERR(PORTFOLIO, "error finding 'results' in parsed_json in parse_account_number_json()", -1)
+		ERR(PORTFOLIO, "error finding 'results' in parsed_json in parse_account_number_json()", -1);
 	account = results->child;
 	if (!account)
-		ERR(PORTFOLIO, "error getting child in parsed_json in parse_account_number_json()", -1)
+		ERR(PORTFOLIO, "error getting child in parsed_json in parse_account_number_json()", -1);
 	account_num = cJSON_GetObjectItem(account, "account_number");
 	if (!account_num)
-		ERR(PORTFOLIO, "error finding 'account number' in parsed_json in parse_account_number_json()", -1)
+		ERR(PORTFOLIO, "error finding 'account number' in parsed_json in parse_account_number_json()", -1);
 	
 	strncpy(account_number, account_num->valuestring, STRING_LENGTH - 1);
 	
@@ -1529,25 +1529,25 @@ get_account_number(void)
 	
 	account_number_struct.data = malloc(1);
 	if (!account_number_struct.data)
-		ERR(PORTFOLIO, "error allocating memory for account_number_struct.data in get_account_number()", -1)
+		ERR(PORTFOLIO, "error allocating memory for account_number_struct.data in get_account_number()", -1);
 	account_number_struct.size = 0;
 	
 	headers = curl_slist_append(headers, "Accept: application/json");
 	headers = curl_slist_append(headers, token_header);
 	if (!headers)
-		ERR(PORTFOLIO, "error with curl_slist_append() in get_account_number()", -1)
+		ERR(PORTFOLIO, "error with curl_slist_append() in get_account_number()", -1);
 			
 	if (curl_easy_setopt(sb_curl, CURLOPT_URL, "https://api.robinhood.com/accounts/") != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_HTTPHEADER, headers) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
-		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_account_number()", -1)
+		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_account_number()", -1);
 	if (curl_easy_perform(sb_curl) != CURLE_OK)
-		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1)
+		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1);
 		
 	if (parse_account_number_json(account_number_struct.data) < 0)
-		ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1)
+		ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1);
 	
 	free(account_number_struct.data);
 	return 0;
@@ -1559,7 +1559,7 @@ parse_token_json(char *raw_json)
 	cJSON *parsed_json = cJSON_Parse(raw_json);
 	cJSON *token = cJSON_GetObjectItem(parsed_json, "token");
 	if (!token)
-		ERR(PORTFOLIO, "error finding 'token' in json in parse_token_json()", -1)
+		ERR(PORTFOLIO, "error finding 'token' in json in parse_token_json()", -1);
 	
 	snprintf(token_header, STRING_LENGTH, "Authorization: Token %s", token->valuestring);
 	
@@ -1580,12 +1580,12 @@ get_token(void)
 	
 	token_struct.data = malloc(1);
 	if (!token_struct.data)
-		ERR(PORTFOLIO, "error allocating memory for token_struct.data in get_token()", -1)
+		ERR(PORTFOLIO, "error allocating memory for token_struct.data in get_token()", -1);
 	token_struct.size = 0;
 	
 	header = curl_slist_append(header, "Accept: application/json");
 	if (!header)
-		ERR(PORTFOLIO, "error with curl_slist_append() in get_token()", -1)
+		ERR(PORTFOLIO, "error with curl_slist_append() in get_token()", -1);
 			
 	if (curl_easy_setopt(sb_curl, CURLOPT_URL, "https://api.robinhood.com/api-token-auth/") != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_HTTPHEADER, header) != CURLE_OK ||
@@ -1593,12 +1593,12 @@ get_token(void)
 			curl_easy_setopt(sb_curl, CURLOPT_USERAGENT, "libcurl-agent/1.0") != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
-		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_token()", -1)
+		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_token()", -1);
 	if (curl_easy_perform(sb_curl) != CURLE_OK)
-		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1)
+		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1);
 		
 	if (parse_token_json(token_struct.data) < 0)
-		ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1)
+		ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1);
 	
 	free(token_struct.data);
 	curl_slist_free_all(header);
@@ -1612,9 +1612,9 @@ init_portfolio()
 		return -1;
 	
 	if (get_token() < 0)
-		ERR(PORTFOLIO, "error getting token in init_portfolio()", -1)
+		ERR(PORTFOLIO, "error getting token in init_portfolio()", -1);
 	if (get_account_number() < 0)
-		ERR(PORTFOLIO, "error getting account number in init_portfolio()", -1)
+		ERR(PORTFOLIO, "error getting account number in init_portfolio()", -1);
 	snprintf(portfolio_url, STRING_LENGTH,
 			"https://api.robinhood.com/accounts/%s/portfolio/", account_number);
 	portfolio_consts_found = true;
@@ -1629,7 +1629,7 @@ populate_tm_struct(void)
 	time(&tval);
 	tm_struct = localtime(&tval);
 	if (!tm_struct)
-		ERR(TIME, "error with localtime() in populate_tm_struct()", -1)
+		ERR(TIME, "error with localtime() in populate_tm_struct()", -1);
 	
 	return 0;
 }
@@ -1700,7 +1700,7 @@ get_vol_range(void)
 	long min, max;
 	
 	if (snd_mixer_selem_get_playback_volume_range(snd_elem, &min, &max))
-		ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume_range() in get_vol_range()", -1)
+		ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume_range() in get_vol_range()", -1);
 		
 	return max - min;
 }
@@ -1723,7 +1723,7 @@ get_brightness_max(char *brightness_file)
 	strncpy(dir_str, dirname(file_str), STRING_LENGTH - 1);
 	
 	if (!(dir = opendir(dir_str)))
-		ERR(BRIGHTNESS, "error opening brightness directory in get_brightness_max", -1)
+		ERR(BRIGHTNESS, "error opening brightness directory in get_brightness_max", -1);
 			
 	while ((file = readdir(dir)))
 		if (!strcmp(file->d_name, "max_brightness")) {
@@ -1735,17 +1735,17 @@ get_brightness_max(char *brightness_file)
 			break;
 		}
 	if (!count)
-		ERR(BRIGHTNESS, "error finding brightness directory in get_brightness_max", -1)
+		ERR(BRIGHTNESS, "error finding brightness directory in get_brightness_max", -1);
 	
 	fd = fopen(dir_str, "r");
 	if (!fd)
-		ERR(BRIGHTNESS, "error opening brightness file in get_brightness_max", -1)
+		ERR(BRIGHTNESS, "error opening brightness file in get_brightness_max", -1);
 	fscanf(fd, "%d", &max);
 	
 	if (fclose(fd) < 0)
-		ERR(BRIGHTNESS, "error closing brightness file in get_brightness_max", -1)
+		ERR(BRIGHTNESS, "error closing brightness file in get_brightness_max", -1);
 	if (closedir(dir) < 0)
-		ERR(BRIGHTNESS, "error closing brightness directory in get_brightness_max", -1)
+		ERR(BRIGHTNESS, "error closing brightness directory in get_brightness_max", -1);
 	return max;
 }
 
@@ -1800,22 +1800,22 @@ populate_list(struct file_link *list, char *path, char *base, char *match)
 	int count = 0;
 	
 	if (!(dir = opendir(path)))
-		ERR(63, "error opening directory in populate_list()", NULL)
+		ERR(63, "error opening directory in populate_list()", NULL);
 		
 	while ((file = readdir(dir))) {
 		if (strstr(file->d_name, base))
 			if (strstr(file->d_name, match)) {
 				list = add_file_link(list, file->d_name);
 				if (!list)
-					ERR(63, "error adding link to list in populate_list()", NULL)
+					ERR(63, "error adding link to list in populate_list()", NULL);
 				count++;
 			}
 	}
 	if (!count)
-		ERR(63, "error finding any files in populate_list()", NULL)
+		ERR(63, "error finding any files in populate_list()", NULL);
 	
 	if (closedir(dir) < 0)
-		ERR(63, "error closing directory in populate_list()", NULL)
+		ERR(63, "error closing directory in populate_list()", NULL);
 	return list;
 }
 
@@ -1827,10 +1827,10 @@ get_gen_consts(char *path, char *base, char *match)
 	
 	list = populate_list(list, path, base, match);
 	if (!list)
-		ERR(63, "error populating list in get_gen_consts()", -1)
+		ERR(63, "error populating list in get_gen_consts()", -1);
 				
 	if (traverse_list(list, path, &total, &count) < 0)
-		ERR(63, "error traversing list in get_gen_consts()", -1)
+		ERR(63, "error traversing list in get_gen_consts()", -1);
 	
 	free_list(list);
 	return total / count;
@@ -1847,23 +1847,23 @@ get_cpu_ratio(void)
 	
 	fd = fopen("/proc/cpuinfo", "r");
 	if (!fd)
-		ERR(CPU_USAGE, "error opening /proc/cpuinfo in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error opening /proc/cpuinfo in get_cpu_ratio()", -1);
 	while (fgets(line, 256, fd) && strncmp(line, "cpu cores", 9));
 	if (!line)
-		ERR(CPU_USAGE, "error reading /proc/cpuinfo in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error reading /proc/cpuinfo in get_cpu_ratio()", -1);
 	if (fclose(fd) < 0)
-		ERR(CPU_USAGE, "error closing /proc/cpuinfo in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error closing /proc/cpuinfo in get_cpu_ratio()", -1);
 			
 	token = strtok(line, ":");
 	if (!token)
-		ERR(CPU_USAGE, "error parsing /proc/cpuinfo in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error parsing /proc/cpuinfo in get_cpu_ratio()", -1);
 	token = strtok(NULL, ":");
 	if (!token)
-		ERR(CPU_USAGE, "error parsing /proc/cpuinfo in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error parsing /proc/cpuinfo in get_cpu_ratio()", -1);
 	
 	cores = atoi(token);
 	if ((threads = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
-		ERR(CPU_USAGE, "error getting threads in get_cpu_ratio()", -1)
+		ERR(CPU_USAGE, "error getting threads in get_cpu_ratio()", -1);
 	
 	return threads / cores;
 }
@@ -1878,31 +1878,31 @@ get_font(char **ptr)
 	char *font;
 	
 	if (!(fd = fopen(DWM_CONFIG_FILE, "r")))
-		ERR(BOTTOMBAR, "error opening dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "error opening dwm config file in get_font()", -1);
 	while (fgets(line, STRING_LENGTH, fd) && strncmp(line, "static const char font", 22));
 	if (!line)
-		ERR(BOTTOMBAR, "no font found in dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "no font found in dwm config file in get_font()", -1);
 	if (fclose(fd) < 0)
-		ERR(BOTTOMBAR, "error closing dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "error closing dwm config file in get_font()", -1);
 			
 	token = strtok(line, "=");
 	if (!token)
-		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1);
 	token = strtok(NULL, "=");
 	if (!token)
-		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1);
 			
 	while (*token != '"') token++;
 	token++;
 	token = strtok(token, "\"");
 	if (!token)
-		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1)
+		ERR(BOTTOMBAR, "error parsing dwm config file in get_font()", -1);
 			
 	font = malloc(strlen(token) + 1);
 	if (!font)
-		ERR(BOTTOMBAR, "error allocating memory for font in get_font()", -1)
+		ERR(BOTTOMBAR, "error allocating memory for font in get_font()", -1);
 	if (!strncpy(font, token, strlen(token)))
-		ERR(BOTTOMBAR, "error storing font in get_font()", -1)
+		ERR(BOTTOMBAR, "error storing font in get_font()", -1);
 	*ptr = font;
 	
 	return 0;
@@ -1921,7 +1921,7 @@ get_bar_max_len(Display *dpy)
 	
 	width_d = DisplayWidth(dpy, DefaultScreen(dpy));
 	if (get_font(&fontname) < 0)
-		ERR(BOTTOMBAR, "error getting font in get_bar_max_len()", -1)
+		ERR(BOTTOMBAR, "error getting font in get_bar_max_len()", -1);
 	fontset = XCreateFontSet(dpy, fontname, &miss_list, &count, &def);
 	if (fontset) {
 		width_c = XmbTextExtents(fontset, "0", 1, NULL, &rect);
@@ -1929,7 +1929,7 @@ get_bar_max_len(Display *dpy)
 	} else {
 		if (!(xfont = XLoadQueryFont(dpy, fontname))
 				&& !(xfont = XLoadQueryFont(dpy, "fixed")))
-			ERR(BOTTOMBAR, "error loading font for bar in get_bar_max_len()", -1)
+			ERR(BOTTOMBAR, "error loading font for bar in get_bar_max_len()", -1);
 		width_c = XTextWidth(xfont, "0", 1);
 		XFreeFont(dpy, xfont);
 	}
@@ -1942,7 +1942,7 @@ static int
 get_block_size(void)
 {
 	if (statvfs("/", &root_fs.fs_stat) < 0)
-		ERR(DISK, "error getting root file stats in get_block_size()", -1)
+		ERR(DISK, "error getting root file stats in get_block_size()", -1);
 			
 	return root_fs.fs_stat.f_bsize;
 }
@@ -1952,7 +1952,7 @@ get_dev_id(void)
 {
 	int index = if_nametoindex(WIFI_INTERFACE);
 	if (!index)
-		ERR(WIFI, "error finding index value for wireless interface in get_dev_id()", -1)
+		ERR(WIFI, "error finding index value for wireless interface in get_dev_id()", -1);
 	return index;
 }
 
@@ -2011,11 +2011,11 @@ populate_lists(void)
 	int err = 0;
 	if (!(therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input"))) {
 		err = -1;
-		ERR(CPU_TEMP, "error creating list of CPU temperature sensors in populate_lists()", -1)
+		ERR(CPU_TEMP, "error creating list of CPU temperature sensors in populate_lists()", -1);
 	}
 	if (!(fan_list = populate_list(fan_list, FAN_SPEED_DIR, "fan", "input"))) {
 		err += -1;
-		ERR(FAN, "error creating list of fan speed sensors in populate_lists()", -1)
+		ERR(FAN, "error creating list of fan speed sensors in populate_lists()", -1);
 	}
 	
 	return err;
@@ -2026,22 +2026,22 @@ make_vol_singleton(void)
 {
 	// stolen from amixer utility from alsa-utils
 	if (snd_mixer_open(&handle, 0))
-		ERR(VOLUME, "error with snd_mixer_open() in make_vol_singleton()", -1)
+		ERR(VOLUME, "error with snd_mixer_open() in make_vol_singleton()", -1);
 	if (snd_mixer_attach(handle, "default"))
-		ERR(VOLUME, "error with snd_mixer_attach() in make_vol_singleton()", -1)
+		ERR(VOLUME, "error with snd_mixer_attach() in make_vol_singleton()", -1);
 	if (snd_mixer_selem_register(handle, NULL, NULL))
-		ERR(VOLUME, "error with snd_mixer_selem_register() in make_vol_singleton()", -1)
+		ERR(VOLUME, "error with snd_mixer_selem_register() in make_vol_singleton()", -1);
 	if (snd_mixer_load(handle))
-		ERR(VOLUME, "error with snd_mixer_load() in make_vol_singleton()", -1)
+		ERR(VOLUME, "error with snd_mixer_load() in make_vol_singleton()", -1);
 	
 	snd_mixer_selem_id_alloca(&sid);
 	snd_mixer_selem_id_set_name(sid, "Master");
 	
 	if (!(snd_elem = snd_mixer_find_selem(handle, sid)))
-		ERR(VOLUME, "error with snd_mixer_find_selem() in make_vol_singleton()", -1)
+		ERR(VOLUME, "error with snd_mixer_find_selem() in make_vol_singleton()", -1);
 			
 	// if (snd_mixer_close(handle))
-		// ERR(VOLUME, "error closing handle in make_vol_singleton()", -1)
+		// ERR(VOLUME, "error closing handle in make_vol_singleton()", -1);
 	snd_config_update_free_global();
 	
 	return 0;
@@ -2052,24 +2052,24 @@ make_wifi_singleton(void)
 {
 	sb_socket = nl_socket_alloc();
 	if (!sb_socket)
-		ERR(WIFI, "error with nl_socket_alloc() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with nl_socket_alloc() in make_wifi_singleton()", -1);
 	if (genl_connect(sb_socket) < 0)
-		ERR(WIFI, "error with genl_connect() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with genl_connect() in make_wifi_singleton()", -1);
 			
 	sb_id = genl_ctrl_resolve(sb_socket, "nl80211");
 	if (!sb_id)
-		ERR(WIFI, "error with genl_ctrl_resolve() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with genl_ctrl_resolve() in make_wifi_singleton()", -1);
 	
 	sb_msg = nlmsg_alloc();
 	if (!sb_msg)
-		ERR(WIFI, "error with nlmsg_alloc() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with nlmsg_alloc() in make_wifi_singleton()", -1);
 			
 	sb_cb = nl_cb_alloc(NL_CB_DEFAULT);
 	if (!sb_cb)
-		ERR(WIFI, "error with nl_cb_alloc() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with nl_cb_alloc() in make_wifi_singleton()", -1);
 			
 	if (rtnl_open(&sb_rth, 0) < 0)
-		ERR(WIFI, "error with rtnl_open() in make_wifi_singleton()", -1)
+		ERR(WIFI, "error with rtnl_open() in make_wifi_singleton()", -1);
 			
 	// nlmsg_free(sb_msg);
 	// nl_socket_free(sb_socket);
@@ -2083,9 +2083,9 @@ static int
 make_curl_singleton(void)
 {
 	if (curl_global_init(CURL_GLOBAL_ALL))
-		ERR(PORTFOLIO, "error making curl singleton in make_curl_singleton()", -1)
+		ERR(PORTFOLIO, "error making curl singleton in make_curl_singleton()", -1);
 	if (!(sb_curl = curl_easy_init()))
-		ERR(PORTFOLIO, "error making curl singleton in make_curl_singleton()", -1)
+		ERR(PORTFOLIO, "error making curl singleton in make_curl_singleton()", -1);
 			
 	// curl_easy_cleanup(sb_curl);
 	curl_global_cleanup();
@@ -2099,13 +2099,13 @@ make_singletons(void)
 	
 	if ((err += make_curl_singleton()) < 0) {
 		SET_FLAG(err, WEATHER);
-		ERR(PORTFOLIO, "error making curl singleton in make_singletons()", -1)
+		ERR(PORTFOLIO, "error making curl singleton in make_singletons()", -1);
 	}
 	if ((err += make_wifi_singleton()) < 0) {
-		ERR(WIFI, "error making wifi singleton in make_singletons()", -1)
+		ERR(WIFI, "error making wifi singleton in make_singletons()", -1);
 	}
 	if ((err += make_vol_singleton()) < 0) {
-		ERR(VOLUME, "error making volume singleton in make_singletons()", -1)
+		ERR(VOLUME, "error making volume singleton in make_singletons()", -1);
 	}
 	
 	return err;
@@ -2119,14 +2119,14 @@ make_new_link(int id, const char *heading, int bar_id, int *bar_len)
 	
 	new = malloc(sizeof(struct string_link));
 	if (!new)
-		ERR(id, "error allocating memory for new string_link in make_new_link()", NULL)
+		ERR(id, "error allocating memory for new string_link in make_new_link()", NULL);
 	heading_len = strlen(heading) + 5;
 	new->heading = malloc(heading_len);
 	if (!new->heading)
-		ERR(id, "error allocating memory for string_link heading in make_new_link()", NULL)
+		ERR(id, "error allocating memory for string_link heading in make_new_link()", NULL);
 	new->info = calloc(1, STRING_LENGTH);
 	if (!new->info)
-		ERR(id, "error allocating memory for string_link info in make_new_link()", NULL)
+		ERR(id, "error allocating memory for string_link info in make_new_link()", NULL);
 			
 	new->id = id;
 	new->bar_id = bar_id;
@@ -2212,11 +2212,11 @@ add_string_link(struct string_link *head, const char *heading, int bar_id, int *
 	
 	id = get_string_link_id(heading);
 	if (id < 0)
-		ERR(63, "error getting id in add_string_link()", NULL)
+		ERR(63, "error getting id in add_string_link()", NULL);
 			
 	new = make_new_link(id, heading, bar_id, bar_len);
 	if (!new)
-		ERR(id, "error making new link in add_string_link()", NULL)
+		ERR(id, "error making new link in add_string_link()", NULL);
 	
 	// add at end to keep order
 	snake = &head;
@@ -2237,14 +2237,14 @@ populate_string_list(void)
 	for (i = 0; i < sizeof top_bar / sizeof *top_bar; i++) {
 		string_list = add_string_link(string_list, top_bar[i], TOPBAR, &top_length);
 		if (!string_list)
-			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1)
+			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1);
 	}
 	for (struct string_link *link = string_list; link; link = link->next)
 		separator = link->id;
 	for (i = 0; i < sizeof bottom_bar / sizeof *bottom_bar; i++) {
 		string_list = add_string_link(string_list, bottom_bar[i], BOTTOMBAR, &bottom_length);
 		if (!string_list)
-			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1)
+			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1);
 	}
 	
 	return 0;
@@ -2313,9 +2313,9 @@ main(void)
 	root = RootWindow(dpy, screen);
 	
 	if (init(dpy, root) < 0)
-		SIMPLE_ERR(63, "error with initialization")
+		SIMPLE_ERR(63, "error with initialization");
 	if (loop(dpy, root) < 0)
-		ERR(63, "loop broken", 1)
+		ERR(63, "loop broken", 1);
 	
 	strncpy(statusbar, "Loop broken. Please check log for details.", TOTAL_LENGTH);
 	XStoreName(dpy, root, statusbar);
