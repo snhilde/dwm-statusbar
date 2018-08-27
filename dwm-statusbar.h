@@ -93,20 +93,25 @@
 #define BATTERY						19
 #define NUM_FLAGS					20
 
-#define STRING(string) \
-	strings[string]
-
-#define HEADING(heading) \
-	headings[heading]
+#define MAX(a, b) a > b ? a : b
+#define MIN(a, b) a < b ? a : b
 
 #define SET_FLAG(flag, id) \
-	flag ## _flags |= 1 << id
+	flag ## _flags |= 1UL << id
 
 #define REMOVE_FLAG(flag, id) \
-	flag ## _flags ^= 1 << id
+	GET_FLAG(flag, id) ? flag ## _flags ^= 1 << id : 0
 
 #define GET_FLAG(flag, id) \
-	flag ## _flags & 1 << id
+	flag ## _flags & 1UL << id
+
+#define CHECK_LENGTH(id) \
+	int new_len = get_length(link); \
+	if (link->len != new_len) { \
+		*link->bar_len += (new_len - link->len); \
+		link->len = new_len; \
+		update_all = true; \
+	}
 
 #define SIMPLE_ERR(id, val) \
 	{ SET_FLAG(err, id); \
@@ -115,6 +120,7 @@
 
 #define ERR(id, val, ret) \
 	{ SET_FLAG(err, id); \
+	strncpy(get_string_link(id)->info, error_string, get_length(get_string_link(id))); \
 	fprintf(stderr, "%s\t%s\n", asctime(tm_struct), val); \
 	perror("\tError"); \
 	return ret; }
@@ -137,6 +143,16 @@ struct file_link {
 	struct file_link *next;
 } *therm_list = NULL, *fan_list = NULL;
 
+struct string_link {
+	int id;
+	int bar_id;
+	char *heading;
+	char *info;
+	int len;
+	int *bar_len;
+	struct string_link *next;
+} *string_list = NULL;
+
 const char color1 = '';
 const char color2 = '';
 const char color3 = '';
@@ -146,13 +162,14 @@ const char color6 = '';
 const char color7 = '';
 const char color8 = '';
 
-char *strings[NUM_FLAGS];
-const char *headings[NUM_FLAGS] = { NULL, NULL, NULL, "log", "TODO", "weather", "backup",
-									"portfolio", "wifi", "time", "network", "disk", "RAM",
-									"load", "CPU usage", "CPU temp", "fan", "brightness",
-									"volume", "battery" };
+char statusbar[TOTAL_LENGTH];
+int top_length;
+int bottom_length;
+char error_string[10];
+
 int err_flags = 0;
 int updated_flags = 0;
+int func_flags = 0;
 
 // singletons
 CURL *sb_curl;
@@ -162,15 +179,17 @@ struct nl_msg *sb_msg;
 struct nl_cb *sb_cb;
 struct rtnl_handle sb_rth;
 snd_mixer_elem_t *snd_elem;
-
-long TODO_mtime = 0;
+	snd_mixer_t *handle = NULL;
+	snd_mixer_selem_id_t *sid;
+	
+int separator;
+bool update_all = false;
 char weather_url[STRING_LENGTH];
 char forecast_url[STRING_LENGTH];
 int day_safe;				// due to cJSON's not being thread-safe
 int temp_today;
 bool need_to_get_weather = true;
 bool backup_occurring = false;
-long backup_mtime = 0;
 bool equity_found = false;
 bool portfolio_consts_found = false;
 char portfolio_url[STRING_LENGTH];

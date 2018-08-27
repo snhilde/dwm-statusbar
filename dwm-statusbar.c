@@ -1,84 +1,106 @@
+#include "config.h"
 #include "dwm-statusbar.h"
 
-static int
-center_bottom_bar(char *bottom_bar)
+static struct string_link *
+get_string_link(int id)
 {
-	if (GET_FLAG(err, BOTTOMBAR))
-		return -1;
+	struct string_link *link = string_list;
 	
-	int half;
+	while (link != NULL) {
+		if (link->id == id)
+			break;
+		link = link->next;
+	}
 	
-	if (strlen(STRING(BOTTOMBAR)) < const_bar_max_len) {
-		half = (const_bar_max_len - strlen(STRING(BOTTOMBAR))) / 2;
-		memmove(STRING(BOTTOMBAR) + half, STRING(BOTTOMBAR), strlen(STRING(BOTTOMBAR)));
-		memset(STRING(BOTTOMBAR), ' ', half);
-	} else
-		memset(STRING(BOTTOMBAR) + strlen(STRING(BOTTOMBAR)) - 3, '.', 3);
+	return link;
+}
+
+static int
+get_padding(char *ptr)
+{
+	int pad;
 	
+	if (const_bar_max_len > bottom_length)
+		pad = (const_bar_max_len - bottom_length) / 2;
+	else
+		pad = 0;
+	
+	memset(ptr, ' ', pad);
+	
+	return pad;
+}
+
+static int
+format_top_bar(char **ptr)
+{
+	// TODO does not handle the resizing of TODO_string
+	// if ((*ptr - statusbar) > const_bar_max_len - 32) {
+		// memset(statusbar + const_bar_max_len - 35, '.', 3);
+		// *ptr = statusbar + const_bar_max_len - 32;
+	// }
+	**ptr = ';';
+	(*ptr)++;
+
 	return 0;
 }
 
 static int
-trunc_TODO_string(char *str)
+get_length(struct string_link *link)
 {
-	if (GET_FLAG(err, BOTTOMBAR))
-		return -1;
-	
-	int len_avail, i, id, len, TODO_len;
-	const int ids[] = { LOG, WEATHER, BACKUP, PORTFOLIO, WIFI, TIME };
-	char *val;
-	const char *heading;
-	
-	len_avail = const_bar_max_len - 32; // 32 for tags on left side
-	for (i = 0; i < (sizeof ids / sizeof *ids); i++) {
-		id = ids[i];
-		val = STRING(id);
-		heading = HEADING(id);
-		
-		if (GET_FLAG(err, id))
-			len = strlen(heading) + 14; // 14 for rest of error statement + \0
-		else if (strlen(val) == 0)
-			continue;
+	if (GET_FLAG(err, link->id))
+		return strlen(link->heading) + 9;
+	else {
+		if (*link->info)
+			return strlen(link->heading) + strlen(link->info);
 		else
-			len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
-		
-		len_avail -= len;
+			return 0;
 	}
-	
-	TODO_len = strlen(str);
-	if (TODO_len > len_avail) {
-		memset(str + len_avail - 4, '.', 3);
-		str[len_avail - 1] = '\0';
-	}
-	
-	REMOVE_FLAG(updated, TOPBAR);
-	return 0;
 }
 
 static int
-format_string(char **str, const char *heading, char *val, int id, bool err_flag)
+copy_string(struct string_link *link, char *start)
 {
-	char *tmp;
-	int len;
+	int head_len, info_len, total_len;
 	
-	if (err_flag)
-		len = strlen(heading) + 14; // 14 for rest of error statement + \0
-	else
-		len = strlen(heading) + strlen(val) + 5; // 5 for rest of final string + \0
+	head_len = strlen(link->heading);
+	info_len = strlen(link->info);
+	total_len = link->len;
 	
-	tmp = calloc(1, len);
-	if (!tmp)
-		ERR(id, "error allocating memory for tmp in format_string()", -1)
+	if (link->id == TODO) {
+		if (head_len < total_len)
+			info_len = total_len - head_len;
+		else {
+			head_len = total_len;
+			info_len = 0;
+		}
+	}
 	
-	if (err_flag)
-		snprintf(tmp, STRING_LENGTH, " %c %s:%c Error%c ",
-				COLOR_HEADING, heading, COLOR_ERROR, COLOR_NORMAL);
-	else
-		snprintf(tmp, len, " %c %s:%s", COLOR_HEADING, heading, val);
-	*str = tmp;
+	if (total_len != head_len + info_len)
+		ERR(link->id, "error calculating correct lengths in copy_string()", 0)
 	
-	if (id == TODO)
-		trunc_TODO_string(*str);
+	memcpy(start, link->heading, head_len);
+	memcpy(start + head_len, link->info, info_len);
+	
+	return total_len;
+}
+
+static int
+handle_TODO(void)
+{
+	struct string_link *link;
+	int new_len;
+	
+	link = get_string_link(TODO);
+	if (!link)
+		ERR(TODO, "error getting TODO link in handle_TODO()", -1)
+			
+	new_len = MIN(strlen(link->heading) + strlen(link->info),
+					const_bar_max_len - 32 - *link->bar_len); // 32 for tags on left side
+	
+	if (new_len != link->len) {
+		link->len = new_len;
+		update_all = true;
+	}
 	
 	return 0;
 }
@@ -86,33 +108,34 @@ format_string(char **str, const char *heading, char *val, int id, bool err_flag)
 static int
 handle_strings(Display *dpy, Window root)
 {
-	memset(STRING(STATUSBAR), '\0', TOTAL_LENGTH);
-	memset(STRING(TOPBAR), '\0', BAR_LENGTH);
-	memset(STRING(BOTTOMBAR), '\0', BAR_LENGTH);
+	char *start;
+	struct string_link *link;
 	
-	int i, bar, flag;
-	char *val;
-	const char *heading;
-	char *str;
+	if (update_all || GET_FLAG(updated, TODO))
+		handle_TODO();
 	
-	for (i = 3; i < NUM_FLAGS; i++) {
-		val = STRING(i);
-		heading = HEADING(i);
-		bar = i < 10 ? TOPBAR : BOTTOMBAR;
-		flag = GET_FLAG(err, i);
-		
-		if (!flag && !strlen(val))
-			continue;
-		format_string(&str, heading, val, i, flag);
-		
-		strncat(STRING(bar), str, BAR_LENGTH - (strlen(STRING(bar) + 1)));
-		free(str);
+	start = statusbar;
+	link = string_list;
+	
+	while (link) {
+		if (link->len) {
+			if (update_all || GET_FLAG(updated, link->id)) {
+				start += copy_string(link, start);
+				REMOVE_FLAG(updated, link->id);
+			} else {
+				start += link->len;
+			}
+		}
+		if (separator == link->id) {
+			format_top_bar(&start);
+			start += get_padding(start);
+		}
+		link = link->next;
 	}
-			
-	center_bottom_bar(STRING(BOTTOMBAR));
-	snprintf(STRING(STATUSBAR), TOTAL_LENGTH, "%s;%s", STRING(TOPBAR), STRING(BOTTOMBAR));
+	*start = '\0';
+	update_all = false;
 	
-	if (!XStoreName(dpy, root, STRING(STATUSBAR)))
+	if (!XStoreName(dpy, root, statusbar))
 		ERR(STATUSBAR, "error with XStoreName() in handle_strings()", -1)
 	if (!XFlush(dpy))
 		ERR(STATUSBAR, "error with XFlush() in handle_strings()", -1)
@@ -126,24 +149,35 @@ get_log(void)
 	if (GET_FLAG(err, LOG))
 		return -1;
 	
+	struct string_link *link;
 	struct stat sb_stat;
 	struct stat dwm_stat;
+	long mtime;
+	static long old_mtime;
 
+	link = get_string_link(LOG);
+	if (!link)
+		ERR(LOG, "error getting string link in get_log()", -1)
+	
 	if (stat(DWM_LOG_FILE, &dwm_stat) < 0)
 		ERR(LOG, "error getting dwm.log file stats in get_log()", -1)
 	if (stat(STATUSBAR_LOG_FILE, &sb_stat) < 0)
 		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1)
 			
-	if ((intmax_t)dwm_stat.st_size > 1)
-		snprintf(STRING(LOG), STRING_LENGTH, "%c Check DWM Log%c ", COLOR_ERROR, COLOR_NORMAL);
-	else if ((intmax_t)sb_stat.st_size > 1)
-		snprintf(STRING(LOG), STRING_LENGTH, "%c Check SB Log%c ", COLOR_ERROR, COLOR_NORMAL);
-	else
-		if (!memset(STRING(LOG), '\0', strlen(STRING(LOG))))
-			ERR(LOG, "error resetting log string in get_log()", -1)
-	
-	SET_FLAG(updated, LOG);
-	SET_FLAG(updated, TOPBAR);
+	mtime = MAX(dwm_stat.st_mtime, sb_stat.st_mtime);
+	if (old_mtime != mtime) {
+		old_mtime = mtime;
+			
+		if ((intmax_t)dwm_stat.st_size > 1)
+			snprintf(link->info, STRING_LENGTH, "%c Check DWM Log%c ", COLOR_ERROR, COLOR_NORMAL);
+		else if ((intmax_t)sb_stat.st_size > 1)
+			snprintf(link->info, STRING_LENGTH, "%c Check SB Log%c ", COLOR_ERROR, COLOR_NORMAL);
+		else if (*link->info)
+			memset(link->info, '\0', strlen(link->info));
+		
+		SET_FLAG(updated, LOG);
+		CHECK_LENGTH(LOG);
+	}
 	return 0;
 }
 
@@ -153,56 +187,60 @@ get_TODO(void)
 	if (GET_FLAG(err, TODO))
 		return -1;
 	
-	// dumb function
 	struct stat file_stat;
-	FILE *fd;
-	char line[STRING_LENGTH];
-	
+	static long old_mtime;
 	if (stat(TODO_FILE, &file_stat) < 0)
 		ERR(TODO, "error getting TODO file stats in get_TODO()", -1)
-	if (file_stat.st_mtime <= TODO_mtime)
-		return 0;
-	else
-		TODO_mtime = file_stat.st_mtime;
+	if (old_mtime != file_stat.st_mtime) {
+		old_mtime = file_stat.st_mtime;
+		
+		// dumb function
+		struct string_link *link;
+		FILE *fd;
+		char line[STRING_LENGTH];
+		
+		link = get_string_link(TODO);
+		if (!link)
+			ERR(TODO, "error getting string link in get_TODO()", -1)
 	
-	fd = fopen(TODO_FILE, "r");
-	if (!fd)
-		ERR(TODO, "error opening TODO file in get_TODO()", -1)
-			
-	// line 1
-	if (!fgets(line, STRING_LENGTH, fd)) {
-		strncpy(STRING(TODO), "All tasks completed!", STRING_LENGTH - 1);
-		return 0;
-	}
-	line[strlen(line) - 1] = '\0'; // remove weird characters at end
-	snprintf(STRING(TODO), STRING_LENGTH, "%c%s", COLOR_NORMAL, line);
-	
-	// lines 2 and 3
-	for (int i = 0; i < 2; i++) {
-		memset(line, '\0', STRING_LENGTH);
-		if (!fgets(line, STRING_LENGTH, fd)) break;
-		line[strlen(line) - 1] = '\0'; // remove weird characters at end
-		switch (line[i]) {
-			case '\0': break;
-			case '\n': break;
-			case '\t':
-				memmove(line, line + i + 1, strlen(line));
-				strncat(STRING(TODO), " -> ", sizeof STRING(TODO) - strlen(STRING(TODO)));
-				strncat(STRING(TODO), line, sizeof STRING(TODO) - strlen(STRING(TODO)));
-				break;
-			default:
-				if (i == 1) break;
-				strncat(STRING(TODO), " | ", sizeof STRING(TODO) - strlen(STRING(TODO)));
-				strncat(STRING(TODO), line, sizeof STRING(TODO) - strlen(STRING(TODO)));
-				break;
+		fd = fopen(TODO_FILE, "r");
+		if (!fd)
+			ERR(TODO, "error opening TODO file in get_TODO()", -1)
+				
+		// line 1
+		if (!fgets(line, STRING_LENGTH, fd)) {
+			strncpy(link->info, "All tasks completed!", STRING_LENGTH - 1);
+			return 0;
 		}
+		line[strlen(line) - 1] = '\0'; // remove weird characters at end
+		snprintf(link->info, STRING_LENGTH, "%c%s ", COLOR_NORMAL, line);
+		
+		// lines 2 and 3
+		for (int i = 0; i < 2; i++) {
+			memset(line, '\0', STRING_LENGTH);
+			if (!fgets(line, STRING_LENGTH, fd)) break;
+			line[strlen(line) - 1] = '\0'; // remove weird characters at end
+			switch (line[i]) {
+				case '\0': break;
+				case '\n': break;
+				case '\t':
+					memmove(line, line + i + 1, strlen(line));
+					strncat(link->info, " -> ", -2);
+					strncat(link->info, line, STRING_LENGTH - strlen(link->info));
+					break;
+				default:
+					if (i == 1) break;
+					strncat(link->info, " | ", STRING_LENGTH - strlen(link->info));
+					strncat(link->info, line, STRING_LENGTH - strlen(link->info));
+					break;
+			}
+		}
+		
+		if (fclose(fd))
+			ERR(TODO, "error closing TODO file in get_TODO()", -1)
+				
+		SET_FLAG(updated, TODO);
 	}
-	
-	if (fclose(fd))
-		ERR(TODO, "error closing TODO file in get_TODO()", -1)
-			
-	SET_FLAG(updated, TODO);		
-	SET_FLAG(updated, TOPBAR);		
 			
 	return 0;
 }
@@ -221,7 +259,7 @@ get_index(cJSON *time_obj)
 }
 
 static int
-parse_forecast_json(char *raw_json)
+parse_forecast_json(char *raw_json, char *info)
 {
 	// for 5-day forecast (sent as 3-hour intervals for 5 days)
 	// only able to handle rain currently
@@ -231,7 +269,7 @@ parse_forecast_json(char *raw_json)
 	cJSON *main_dict, *temp_obj;
 	cJSON *rain_dict, *rain_obj;
 	int i;
-	char  tmp_str[16];
+	char  tmp_str[64];
 	
 	struct data {
 		int high;
@@ -277,11 +315,11 @@ parse_forecast_json(char *raw_json)
 	}
 	
 	for (i = 0; i < 4; i++) {
-		snprintf(tmp_str, 16, "%c %s(%2d/%2d)",
+		snprintf(tmp_str, 64, "%c %s(%2d/%2d)%c ",
 				data[i].precipitation >= 3 ? COLOR_WARNING : COLOR_NORMAL,
 				i > 0 ? days_of_week[day_safe + i - 1] : "",
-				data[i].high, data[i].low);
-		strncat(STRING(WEATHER), tmp_str, STRING_LENGTH - strlen(STRING(WEATHER)));
+				data[i].high, data[i].low, COLOR_NORMAL);
+		strncat(info, tmp_str, STRING_LENGTH - strlen(info));
 	}
 	
 	cJSON_Delete(parsed_json);
@@ -289,7 +327,7 @@ parse_forecast_json(char *raw_json)
 }
 
 static int
-parse_weather_json(char *raw_json)
+parse_weather_json(char *raw_json, char *info)
 {
 	// for current weather
 	// only able to handle rain currently (winter is not coming)
@@ -325,7 +363,7 @@ parse_weather_json(char *raw_json)
 	if (!id)
 		ERR(WEATHER, "error getting id from weather json in parse_weather_json()", -1)
 	
-	snprintf(STRING(WEATHER), STRING_LENGTH, "%c %2d F",
+	snprintf(info, STRING_LENGTH, "%c %2d F",
 			id < 800 ? COLOR_WARNING : COLOR_NORMAL, temp_today);
 	
 	cJSON_Delete(parsed_json);
@@ -357,15 +395,22 @@ get_weather(void)
 	if (GET_FLAG(err, WEATHER))
 		return -1;
 	
-	snprintf(STRING(WEATHER), STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
-	if (!wifi_connected) {
-		need_to_get_weather = true;
-		return -1;
-	}
-	
+	struct string_link *link;
 	int i;
 	struct data_struct json_structs[2];
 	static const char *urls[2] = { WEATHER_URL, FORECAST_URL };
+	
+	link = get_string_link(WEATHER);
+	if (!link)
+		ERR(WEATHER, "error getting string link in get_weather()", -1)
+	
+	snprintf(link->info, STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
+	if (!wifi_connected) {
+		need_to_get_weather = true;
+		SET_FLAG(updated, WEATHER);
+		CHECK_LENGTH(WEATHER);
+		return -1;
+	}
 	
 	curl_easy_reset(sb_curl);
 	day_safe = tm_struct->tm_wday;
@@ -383,10 +428,10 @@ get_weather(void)
 			ERR(WEATHER, "error with curl_easy_setops() in get_weather()", -1)
 		if (curl_easy_perform(sb_curl) == CURLE_OK) {
 			if (!i) {
-				if (parse_weather_json(json_structs[i].data) < 0)
+				if (parse_weather_json(json_structs[i].data, link->info) < 0)
 					ERR(WEATHER, "error parsing weather json in get_weather()", -1)
 			} else {
-				if (parse_forecast_json(json_structs[i].data) < 0)
+				if (parse_forecast_json(json_structs[i].data, link->info) < 0)
 					ERR(WEATHER, "error parsing forecast json in get_weather()", -1)
 			}
 			need_to_get_weather = false;
@@ -397,7 +442,7 @@ get_weather(void)
 	}
 	
 	SET_FLAG(updated, WEATHER);
-	SET_FLAG(updated, TOPBAR);
+	CHECK_LENGTH(WEATHER);
 	
 	return 0;
 }
@@ -434,58 +479,64 @@ get_backup(void)
 		return -1;
 	
 	struct stat file_stat;
+	static long old_mtime;
+	
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
 		ERR(BACKUP, "error getting backup file stats in get_backup()", -1)
-	if (file_stat.st_mtime <= backup_mtime)
-		return 0;
-	
-	backup_mtime = file_stat.st_mtime;
-	backup_occurring = false;
-	
-	FILE *fd;
-	char line[32], status[16], color = COLOR_ERROR;
-	int value, len;
-	time_t curr_time;
-	time_t t_diff;
-	
-	len = sizeof status;
-	
-	if (!(fd = fopen(BACKUP_STATUS_FILE, "r")))
-		ERR(BACKUP, "error opening backup status file in get_backup()", -1)
-			
-	if (!fgets(line, 32, fd))
-		ERR(BACKUP, "backup history file is empty in get_backup()", -1)
-			
-	if (fclose(fd))
-		ERR(BACKUP, "error closing backup status file in get_backup()", -1)
-			
-	if (isdigit(line[0])) {
-		sscanf(line, "%d", &value);
+	if (old_mtime != file_stat.st_mtime) {
+		old_mtime = file_stat.st_mtime;
+		backup_occurring = false;
+		
+		struct string_link *link;
+		FILE *fd;
+		char line[32], status[16], color = COLOR_ERROR;
+		int value, len;
+		time_t curr_time;
+		time_t t_diff;
+		
+		link = get_string_link(BACKUP);
+		if (!link)
+			ERR(BACKUP, "error getting string link in get_backup()", -1)
+		
+		len = sizeof status;
+		
+		if (!(fd = fopen(BACKUP_STATUS_FILE, "r")))
+			ERR(BACKUP, "error opening backup status file in get_backup()", -1)
 				
-		if (value >= 20 && value <= 26)
-			parse_error_code(value, status, len);
-		else {
-			time(&curr_time);
-			t_diff = curr_time - value;
-			if (t_diff > 86400)
-				strncpy(status, "missed", len - 1);
+		if (!fgets(line, 32, fd))
+			ERR(BACKUP, "backup history file is empty in get_backup()", -1)
+				
+		if (fclose(fd))
+			ERR(BACKUP, "error closing backup status file in get_backup()", -1)
+				
+		if (isdigit(line[0])) {
+			sscanf(line, "%d", &value);
+					
+			if (value >= 20 && value <= 26)
+				parse_error_code(value, status, len);
 			else {
-				strncpy(status, "done", len - 1);
-				color = COLOR1;
+				time(&curr_time);
+				t_diff = curr_time - value;
+				if (t_diff > 86400)
+					strncpy(status, "missed", len - 1);
+				else {
+					strncpy(status, "done", len - 1);
+					color = COLOR1;
+				}
 			}
+		} else {
+			line[strlen(line) - 1] = '\0';
+			strncpy(status, line, len - 1);
+			color = COLOR2;
 		}
-	} else {
-		line[strlen(line) - 1] = '\0';
-		strncpy(status, line, len - 1);
-		color = COLOR2;
+		
+		snprintf(link->info, STRING_LENGTH, "%c %s%c ",
+				color, status, COLOR_NORMAL);
+		
+		SET_FLAG(updated, BACKUP);
+		CHECK_LENGTH(BACKUP);
+		backup_occurring = true;
 	}
-	
-	snprintf(STRING(BACKUP), STRING_LENGTH, "%c %s%c ",
-			color, status, COLOR_NORMAL);
-	
-	SET_FLAG(updated, BACKUP);
-	SET_FLAG(updated, TOPBAR);
-	backup_occurring = true;
 		
 	return 0;
 }
@@ -584,16 +635,23 @@ get_portfolio(void)
 	if (GET_FLAG(err, PORTFOLIO))
 		return -1;
 	
-	snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
-			
+	struct string_link *link;
+	struct data_struct portfolio_jstruct;
+	double equity;
+	static double old_equity;
+	
+	link = get_string_link(PORTFOLIO);
+	if (!link)
+		ERR(PORTFOLIO, "error getting string link in get_portfolio()", -1)
+	
 	switch (run_or_skip()) {
 		case 0: break;
 		case 1: return 0;
-		case 2: return -2;
+		case 2: snprintf(link->info, STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
+				SET_FLAG(updated, PORTFOLIO);
+				CHECK_LENGTH(PORTFOLIO);
+				return -2;
 	}
-	
-	struct data_struct portfolio_jstruct;
-	static double equity;
 	
 	curl_easy_reset(sb_curl);
 	
@@ -611,15 +669,19 @@ get_portfolio(void)
 	if (curl_easy_perform(sb_curl) == CURLE_OK) {
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
 			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1)
-		
-		snprintf(STRING(PORTFOLIO), STRING_LENGTH, "%c%.2lf ",
-				equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
-		equity_found = true;
+				
+		if (old_equity != equity) {
+			old_equity = equity;
+			
+			snprintf(link->info, STRING_LENGTH, "%c%.2lf ",
+					equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
+			
+			SET_FLAG(updated, PORTFOLIO);
+			CHECK_LENGTH(PORTFOLIO);
+			equity_found = true;
+		}
 	}
 	
-	SET_FLAG(updated, PORTFOLIO);
-	SET_FLAG(updated, TOPBAR);
-			
 	free(portfolio_jstruct.data);
 	return 0;
 }
@@ -639,12 +701,15 @@ free_wifi_list(struct nlmsg_list *list)
 }
 
 static int
-format_wifi_status(char color, char *ssid_string)
+format_wifi_status(char *ssid_string, char *info, char color)
 {
+	if (GET_FLAG(err, WIFI))
+		return 0;
+	
 	if (strlen(ssid_string) > STRING_LENGTH - 12)
 		memset(ssid_string + STRING_LENGTH - 15, '.', 3);
 	
-	snprintf(STRING(WIFI), STRING_LENGTH, "%c %s%c ",
+	snprintf(info, STRING_LENGTH, "%c %s%c ",
 			color, ssid_string, COLOR_NORMAL);
 	
 	return 0;
@@ -753,10 +818,15 @@ get_wifi(void)
 	if (GET_FLAG(err, WIFI))
 		return -1;
 	
+	struct string_link *link;
 	int ifi_flag;
 	int op_state;
 	char color = COLOR2;
 	char *ssid_string;
+	
+	link = get_string_link(WIFI);
+	if (!link)
+		ERR(WIFI, "error getting string link in get_wifi()", -1)
 	
 	ifi_flag = ip_check(0);
 	if (ifi_flag == -1) return -1;
@@ -777,7 +847,7 @@ get_wifi(void)
 		strncpy(ssid_string, "No Connection Initiated", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 5) {
-		strncpy(ssid_string, "No Carrier", STRING_LENGTH - 1);
+		strncpy(ssid_string, "Not Connection", STRING_LENGTH - 1);
 		wifi_connected = false;
 	} else if (ifi_flag && op_state == 6) {
 		if (wifi_connected)
@@ -798,9 +868,9 @@ get_wifi(void)
 	} else
 		ERR(WIFI, "error finding wifi status in get_wifi()", -1)
 			
-	format_wifi_status(color, ssid_string);
+	format_wifi_status(ssid_string, link->info, color);
 	SET_FLAG(updated, WIFI);		
-	SET_FLAG(updated, TOPBAR);		
+	CHECK_LENGTH(WIFI);		
 	
 	free(ssid_string);
 	return 0;
@@ -812,10 +882,19 @@ get_time(void)
 	if (GET_FLAG(err, TIME))
 		return -1;
 	
-	if (strftime(STRING(TIME), STRING_LENGTH,  "%b %d - %I:%M", tm_struct) == 0)
+	struct string_link *link;
+	
+	link = get_string_link(TIME);
+	if (!link)
+		ERR(TIME, "error getting string link in get_time()", -1)
+	
+	if (strftime(link->info, STRING_LENGTH,  "%b %d - %I:%M", tm_struct) == 0)
 		ERR(TIME, "error with strftime() in get_time()", -1)
 	if (tm_struct->tm_sec % 2)
-		STRING(TIME)[strlen(STRING(TIME)) - 3] = ' ';
+		link->info[strlen(link->info) - 3] = ' ';
+	
+	SET_FLAG(updated, TIME);
+	CHECK_LENGTH(TIME);
 	
 	return 0;
 }
@@ -855,14 +934,20 @@ get_network(void)
 		return -1;
 	
 	/* from top.c */
+	struct string_link *link;
 	const char* files[2] = { NET_RX_FILE, NET_TX_FILE };
 	FILE *fd;
 	char line[64];
-	static long rx_old, tx_old;
+	static long rx_old, tx_old, old_rx_bps, old_tx_bps;
 	long rx_new, tx_new;
 	long rx_bps, tx_bps;
 	int step = 0;
 	char rx_unit, tx_unit;
+	static char old_rx_unit, old_tx_unit;
+	
+	link = get_string_link(NETWORK);
+	if (!link)
+		ERR(NETWORK, "error getting string link in get_network()", -1)
 	
 	for (int i = 0; i < 2; i++) {
 		fd = fopen(files[i], "r");
@@ -888,14 +973,25 @@ get_network(void)
 	if (rx_bps > 999) rx_bps = 999;
 	if (tx_bps > 999) tx_bps = 999;
 	
-	snprintf(STRING(NETWORK), STRING_LENGTH, "%c%3d %c/S down,%c%3d %c/S up%c ",
-			rx_unit == 'M' ? COLOR_WARNING : COLOR_NORMAL, rx_bps, rx_unit,
-			tx_unit == 'M' ? COLOR_WARNING : COLOR_NORMAL, tx_bps, tx_unit, COLOR_NORMAL);
-	
 	rx_old = rx_new;
 	tx_old = tx_new;
 	
-	SET_FLAG(updated, NETWORK);
+	if (old_rx_bps != rx_bps ||
+		old_tx_bps != tx_bps ||
+		old_rx_unit != rx_unit ||
+		old_tx_unit != tx_unit) {
+		old_rx_bps = rx_bps;
+		old_tx_bps = tx_bps;
+		old_rx_unit = rx_unit;
+		old_tx_unit = tx_unit;
+	
+		snprintf(link->info, STRING_LENGTH, "%c%3d %c/S down,%c%3d %c/S up%c ",
+				rx_unit == 'M' ? COLOR_WARNING : COLOR_NORMAL, rx_bps, rx_unit,
+				tx_unit == 'M' ? COLOR_WARNING : COLOR_NORMAL, tx_bps, tx_unit, COLOR_NORMAL);
+	
+		SET_FLAG(updated, NETWORK);
+		CHECK_LENGTH(NETWORK);
+	}
 	
 	return 0;
 }
@@ -934,20 +1030,31 @@ get_disk(void)
 	if (GET_FLAG(err, DISK))
 		return -1;
 	
+	struct string_link *link;
 	int rootperc;
+	static int old_rootperc;
 
+	link = get_string_link(DISK);
+	if (!link)
+		ERR(DISK, "error getting string link in get_disk()", -1)
+	
 	if (statvfs("/", &root_fs.fs_stat) < 0)
 		ERR(DISK, "error getting filesystem stats in get_disk()", -1)
 	
 	process_stat(&root_fs);
 	rootperc = rint((double)root_fs.bytes_used / (double)root_fs.bytes_total * 100);
 	
-	snprintf(STRING(DISK), STRING_LENGTH, "%c %.1f%c/%.1f%c%c ", 
-			rootperc >= 75? COLOR_WARNING : COLOR_NORMAL,
-			root_fs.bytes_used, root_fs.unit_used, root_fs.bytes_total, root_fs.unit_total,
-			COLOR_NORMAL);
+	if (old_rootperc != rootperc) {
+		old_rootperc = rootperc;
 	
-	SET_FLAG(updated, DISK);
+		snprintf(link->info, STRING_LENGTH, "%c %.1f%c/%.1f%c%c ", 
+				rootperc >= 75? COLOR_WARNING : COLOR_NORMAL,
+				root_fs.bytes_used, root_fs.unit_used, root_fs.bytes_total, root_fs.unit_total,
+				COLOR_NORMAL);
+		
+		SET_FLAG(updated, DISK);
+		CHECK_LENGTH(DISK);
+	}
 
 	return 0;
 }
@@ -958,19 +1065,30 @@ get_RAM(void)
 	if (GET_FLAG(err, RAM))
 		return -1;
 	
+	struct string_link *link;
 	int memperc;
+	static int old_memperc;
 
+	link = get_string_link(RAM);
+	if (!link)
+		ERR(RAM, "error getting string link in get_RAM()", -1)
+	
 	meminfo();
 	
 	memperc = rint((double)kb_active / (double)kb_main_total * 100);
 	if (memperc > 99)
 		memperc = 99;
 	
-	snprintf(STRING(RAM), STRING_LENGTH, "%c %2d%% used%c ",
-			memperc >= 75? COLOR_WARNING : COLOR_NORMAL,
-			memperc, COLOR_NORMAL);
+	if (old_memperc != memperc) {
+		old_memperc = memperc;
 	
-	SET_FLAG(updated, RAM);
+		snprintf(link->info, STRING_LENGTH, "%c %2d%% used%c ",
+				memperc >= 75? COLOR_WARNING : COLOR_NORMAL,
+				memperc, COLOR_NORMAL);
+	
+		SET_FLAG(updated, RAM);
+		CHECK_LENGTH(RAM);
+	}
 	
 	return 0;
 }
@@ -981,15 +1099,29 @@ get_load(void)
 	if (GET_FLAG(err, LOAD))
 		return -1;
 	
-	// why was this static?
-	double av[3];
+	struct string_link *link;
+	double loadavg[3];
+	static int old_loadavg[3];
 	
-	loadavg(&av[0], &av[1], &av[2]);
-	snprintf(STRING(LOAD), STRING_LENGTH, "%c %.2f %.2f %.2f%c ",
-			av[0] > 1 ? COLOR_WARNING : COLOR_NORMAL,
-			av[0], av[1], av[2], COLOR_NORMAL);
+	link = get_string_link(LOAD);
+	if (!link)
+		ERR(LOAD, "error getting string link in get_load()", -1)
 	
-	SET_FLAG(updated, LOAD);
+	getloadavg(loadavg, 3);
+	
+	if (old_loadavg[0] != loadavg[0] * 100 ||
+		old_loadavg[1] != loadavg[1] * 100 ||
+		old_loadavg[2] != loadavg[2] * 100) {
+		for (int i = 0; i < 3; i++)
+			old_loadavg[i] = loadavg[i] * 100;
+		
+		snprintf(link->info, STRING_LENGTH, "%c %.2f %.2f %.2f%c ",
+				loadavg[0] > 1 ? COLOR_WARNING : COLOR_NORMAL,
+				loadavg[0], loadavg[1], loadavg[2], COLOR_NORMAL);
+		
+		SET_FLAG(updated, LOAD);
+		CHECK_LENGTH(LOAD);
+	}
 	
 	return 0;
 }
@@ -1002,11 +1134,17 @@ get_cpu_usage(void)
 	
 	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
 	/* from top.c */
+	struct string_link *link;
 	FILE *fd;
 	char line[64];
 	int working_new = 0, working_old = 0, total_new = 0, total_old = 0;
-	int working_diff, total_diff, total = 0;
+	int working_diff, total_diff, total;
 	int i;
+	static int old_total;
+	
+	link = get_string_link(CPU_USAGE);
+	if (!link)
+		ERR(CPU_USAGE, "error getting string link in get_cpu_usage()", -1)
 	
 	static struct {
 		int old[7];
@@ -1057,11 +1195,17 @@ get_cpu_usage(void)
 		cpu.old[i] = cpu.new[i];
 	
 	if (total >= 100) total = 99;
-	snprintf(STRING(CPU_USAGE), STRING_LENGTH, "%c %2d%%%c ",
-			total >= 75 ? COLOR_WARNING : COLOR_NORMAL,
-			total, COLOR_NORMAL);
 	
-	SET_FLAG(updated, CPU_USAGE);
+	if (old_total != total) {
+		old_total = total;
+		
+		snprintf(link->info, STRING_LENGTH, "%c %2d%%%c ",
+				total >= 75 ? COLOR_WARNING : COLOR_NORMAL,
+				total, COLOR_NORMAL);
+		
+		SET_FLAG(updated, CPU_USAGE);
+		CHECK_LENGTH(CPU_USAGE);
+	}
 	
 	return 0;
 }
@@ -1105,7 +1249,13 @@ get_cpu_temp(void)
 	if (GET_FLAG(err, CPU_TEMP))
 		return -1;
 	
+	struct string_link *link;
 	int total, count, temp, tempperc; 
+	static int old_temp;
+	
+	link = get_string_link(CPU_TEMP);
+	if (!link)
+		ERR(CPU_TEMP, "error getting string link in get_cpu_temp()", -1)
 	
 	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count) < 0)
 		ERR(CPU_TEMP, "error traversing list in get_cpu_temp()", -1)
@@ -1115,11 +1265,17 @@ get_cpu_temp(void)
 	tempperc = rint((double)temp / (double)const_temp_max * 100);
 	temp >>= 10;
 	
-	snprintf(STRING(CPU_TEMP), STRING_LENGTH, "%c %2d degC%c ",
-			tempperc >= 75? COLOR_WARNING : COLOR_NORMAL,
-			temp, COLOR_NORMAL);
 	
-	SET_FLAG(updated, CPU_TEMP);
+	if (old_temp != temp) {
+		old_temp = temp;
+		
+		snprintf(link->info, STRING_LENGTH, "%c %2d degC%c ",
+				tempperc >= 75? COLOR_WARNING : COLOR_NORMAL,
+				temp, COLOR_NORMAL);
+		
+		SET_FLAG(updated, CPU_TEMP);
+		CHECK_LENGTH(CPU_TEMP);
+	}
 
 	return 0;
 }
@@ -1130,7 +1286,13 @@ get_fan(void)
 	if (GET_FLAG(err, FAN))
 		return -1;
 	
+	struct string_link *link;
 	int rpm, count, fanperc;
+	static int old_fanperc;
+	
+	link = get_string_link(FAN);
+	if (!link)
+		ERR(FAN, "error getting string link in get_fan()", -1)
 	
 	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count) < 0)
 		ERR(FAN, "error traversing list in get_fan()", -1)
@@ -1142,14 +1304,19 @@ get_fan(void)
 	
 	fanperc = rint((double)rpm / (double)const_fan_max * 100);
 	
-	if (fanperc >= 100)
-		snprintf(STRING(FAN), STRING_LENGTH, "%c MAX %c ", COLOR_WARNING, COLOR_NORMAL);
-	else
-		snprintf(STRING(FAN), STRING_LENGTH, "%c %2d%% %c ",
-				fanperc >= 75? COLOR_WARNING : COLOR_NORMAL,
-				fanperc, COLOR_NORMAL);
+	if (old_fanperc != fanperc) {
+		old_fanperc = fanperc;
 	
-	SET_FLAG(updated, FAN);
+		if (fanperc >= 100)
+			snprintf(link->info, STRING_LENGTH, "%c MAX %c ", COLOR_WARNING, COLOR_NORMAL);
+		else
+			snprintf(link->info, STRING_LENGTH, "%c %2d%% %c ",
+					fanperc >= 75? COLOR_WARNING : COLOR_NORMAL,
+					fanperc, COLOR_NORMAL);
+		
+		SET_FLAG(updated, FAN);
+		CHECK_LENGTH(FAN);
+	}
 
 	return 0;
 }
@@ -1162,8 +1329,14 @@ get_brightness(void)
 	
 	const char* b_files[2] = { SCREEN_BRIGHTNESS_FILE, KBD_BRIGHTNESS_FILE };
 	
+	struct string_link *link;
 	int scrn, kbd;
-	int scrn_perc, kbd_perc;
+	int scrn_perc, kbd_perc = 0;
+	static int old_scrn_perc, old_kbd_perc;
+	
+	link = get_string_link(BRIGHTNESS);
+	if (!link)
+		ERR(BRIGHTNESS, "error getting string link in get_brightness()", -1);
 	
 	for (int i = 0; i < 2; i++) {
 		if (i == 1 && !DISPLAY_KBD) continue;
@@ -1180,14 +1353,21 @@ get_brightness(void)
 	if (DISPLAY_KBD)
 		kbd_perc = rint((double)kbd / (double)const_kbd_brightness_max * 100);
 	
-	if (DISPLAY_KBD)
-		snprintf(STRING(BRIGHTNESS), STRING_LENGTH, "%c%3d%%, %3d%%%c ",
-			COLOR_NORMAL, scrn_perc, kbd_perc, COLOR_NORMAL);
-	else
-		snprintf(STRING(BRIGHTNESS), STRING_LENGTH, "%c%3d%%%c ",
-			COLOR_NORMAL, scrn_perc, COLOR_NORMAL);
-	
-	SET_FLAG(updated, BRIGHTNESS);
+	if (old_scrn_perc != scrn_perc ||
+		old_kbd_perc != kbd_perc) {
+		old_scrn_perc = scrn_perc;
+		old_kbd_perc = kbd_perc;
+		
+		if (DISPLAY_KBD)
+			snprintf(link->info, STRING_LENGTH, "%c%3d%%, %3d%%%c ",
+				COLOR_NORMAL, scrn_perc, kbd_perc, COLOR_NORMAL);
+		else
+			snprintf(link->info, STRING_LENGTH, "%c%3d%%%c ",
+				COLOR_NORMAL, scrn_perc, COLOR_NORMAL);
+		
+		SET_FLAG(updated, BRIGHTNESS);
+		CHECK_LENGTH(BRIGHTNESS);
+	}
 	
 	return 0;
 }
@@ -1198,14 +1378,29 @@ get_volume(void)
 	if (GET_FLAG(err, VOLUME))
 		return -1;
 	
+	struct string_link *link;
 	long pvol;
 	int swch, volperc;
+	static int old_vol;
+	
+	link = get_string_link(VOLUME);
+	if (!link)
+		ERR(VOLUME, "error getting string link in get_volume()", -1);
 	
 	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
 		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1)
 	if (!swch) {
-		snprintf(STRING(VOLUME), STRING_LENGTH, "%cmute%c ",
-				COLOR_NORMAL, COLOR_NORMAL);
+		if (!old_vol && link->len)
+			return 0;
+		else {
+			old_vol = swch;
+			
+			snprintf(link->info, STRING_LENGTH, "%cmute%c ",
+					COLOR_NORMAL, COLOR_NORMAL);
+			
+			SET_FLAG(updated, VOLUME);
+			CHECK_LENGTH(VOLUME);
+		}
 	} else {
 		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
 			ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume() in get_volume()", -1)
@@ -1214,11 +1409,16 @@ get_volume(void)
 		volperc = (double)pvol / const_vol_range * 100;
 		volperc = rint((float)volperc / 10) * 10;
 		
-		snprintf(STRING(VOLUME), STRING_LENGTH, "%c%3d%%%c ",
-				COLOR_NORMAL, volperc, COLOR_NORMAL);
+		if (old_vol != volperc) {
+			old_vol = volperc;
+		
+			snprintf(link->info, STRING_LENGTH, "%c%3d%%%c ",
+					COLOR_NORMAL, volperc, COLOR_NORMAL);
+				
+			SET_FLAG(updated, VOLUME);
+			CHECK_LENGTH(VOLUME);
+		}
 	}
-	
-	SET_FLAG(updated, VOLUME);
 	
 	return 0;
 }
@@ -1230,10 +1430,16 @@ get_battery(void)
 		return -1;
 	
 	/* from acpi.c and other acpi source files */
+	struct string_link *link;
 	FILE *fd;
 	char status_string[20];
 	int status; // -1 = discharging, 0 = full, 1 = charging
 	int capacity;
+	static int old_status, old_capacity;
+	
+	link = get_string_link(BATTERY);
+	if (!link)
+		ERR(BATTERY, "error getting string link in get_battery()", -1);
 	
 	fd = fopen(BATT_STATUS_FILE, "r");
 	if (!fd)
@@ -1243,10 +1449,19 @@ get_battery(void)
 		ERR(BATTERY, "error closing battery status file in get_battery()", -1)
 
 	if (!strcmp(status_string, "Full") || !strcmp(status_string, "Unknown")) {
-		status = 0;
-		snprintf(STRING(BATTERY), STRING_LENGTH, "%c full %c",
-				COLOR1, COLOR_NORMAL);
-		return 0;
+		if (!old_status && link->len)
+			return 0;
+		else {
+			old_status = 0;
+			
+			snprintf(link->info, STRING_LENGTH, "%c full %c ",
+					COLOR1, COLOR_NORMAL);
+			
+			SET_FLAG(updated, BATTERY);
+			CHECK_LENGTH(BATTERY);
+			
+			return 0;
+		}
 	}
 	
 	if (!strcmp(status_string, "Discharging"))
@@ -1265,12 +1480,17 @@ get_battery(void)
 	
 	if (capacity > 99)
 		capacity = 99;
-		
-	snprintf(STRING(BATTERY), STRING_LENGTH, " %c %c%2d%% %c",
-			capacity < 20 ? COLOR_ERROR : status > 0 ? COLOR2 : COLOR_WARNING,
-			status > 0 ? '+' : '-', capacity, COLOR_NORMAL);
 	
-	SET_FLAG(updated, BATTERY);
+	if (old_capacity != capacity) {
+		old_capacity = capacity;
+			
+		snprintf(link->info, STRING_LENGTH, " %c %c%2d%% %c ",
+				capacity < 20 ? COLOR_ERROR : status > 0 ? COLOR2 : COLOR_WARNING,
+				status > 0 ? '+' : '-', capacity, COLOR_NORMAL);
+		
+		SET_FLAG(updated, BATTERY);
+		CHECK_LENGTH(BATTERY);
+	}
 	
 	return 0;
 }
@@ -1388,7 +1608,7 @@ get_token(void)
 static int
 init_portfolio()
 {
-	if (GET_FLAG(err, PORTFOLIO))
+	if (!sb_curl)
 		return -1;
 	
 	if (get_token() < 0)
@@ -1415,7 +1635,7 @@ populate_tm_struct(void)
 }
 
 static int
-loop (Display *dpy, Window root)
+loop(Display *dpy, Window root)
 {
 	int err = 0;
 	
@@ -1424,45 +1644,48 @@ loop (Display *dpy, Window root)
 		err += populate_tm_struct();
 		
 		// // run every second
-		get_time();
-		get_network();
-		get_cpu_usage();
-		get_volume();
+		if (GET_FLAG(func, TIME)) get_time();
+		if (GET_FLAG(func, TIME)) get_network();
+		if (GET_FLAG(func, TIME)) get_cpu_usage();
+		if (GET_FLAG(func, TIME)) get_volume();
 		if (wifi_connected) {
-			if (need_to_get_weather)
+			if (GET_FLAG(func, WEATHER) && need_to_get_weather)
 				get_weather();
-			if (!portfolio_consts_found)
+			if (GET_FLAG(func, PORTFOLIO) && !portfolio_consts_found)
 				init_portfolio();
 		}
-		if (backup_occurring)
+		if (GET_FLAG(func, BACKUP) && backup_occurring)
 			get_backup();
 		
 		// run every five seconds
 		if (tm_struct->tm_sec % 5 == 0) {
-			get_log();
-			get_TODO();
-			get_backup();
-			get_portfolio();
-			get_wifi();
-			get_RAM();
-			get_load();
-			get_cpu_temp();
-			get_fan();
-			get_brightness();
-			get_battery();
+			if (GET_FLAG(func, TIME)) get_log();
+			if (GET_FLAG(func, TIME)) get_TODO();
+			if (GET_FLAG(func, TIME)) get_backup();
+			if (GET_FLAG(func, TIME)) get_portfolio();
+			if (GET_FLAG(func, TIME)) get_wifi();
+			if (GET_FLAG(func, TIME)) get_RAM();
+			if (GET_FLAG(func, TIME)) get_load();
+			if (GET_FLAG(func, TIME)) get_cpu_temp();
+			if (GET_FLAG(func, TIME)) get_fan();
+			if (GET_FLAG(func, TIME)) get_brightness();
+			if (GET_FLAG(func, TIME)) get_battery();
 		}
 		
 		// run every minute
 		if (tm_struct->tm_sec == 0) {
-			get_disk();
+			if (GET_FLAG(func, TIME)) get_disk();
 		}
 		
 		// run every 3 hours
-		if ((tm_struct->tm_hour + 1) % 3 == 0 && tm_struct->tm_min == 0 && tm_struct->tm_sec == 0)
-			if (!wifi_connected)
-				need_to_get_weather = true;
-			else
-				get_weather();
+		if ((tm_struct->tm_hour + 1) % 3 == 0 && tm_struct->tm_min == 0 && tm_struct->tm_sec == 0) {
+			if (GET_FLAG(func, WEATHER)) {
+				if (!wifi_connected)
+					need_to_get_weather = true;
+				else
+					get_weather();
+			}
+		}
 		
 		err += handle_strings(dpy, root);
 		err += sleep(1);
@@ -1542,19 +1765,19 @@ free_list(struct file_link *list)
 }
 
 static struct file_link *
-add_link(struct file_link *list, char *filename)
+add_file_link(struct file_link *list, char *filename)
 {
 	struct file_link *new;
 	int len;
 	
 	new = malloc(sizeof(struct file_link));
 	if (!new)
-		ERR(0, "error allocating memory for new link in add_link()", NULL);
+		ERR(63, "error allocating memory for new link in add_file_link()", NULL);
 			
 	len = strlen(filename) + 1;
 	new->filename = malloc(len);
 	if (!new->filename)
-		ERR(0, "error allocating memory for filename in new link in add_link()", NULL);
+		ERR(63, "error allocating memory for filename in new link in add_file_link()", NULL);
 	
 	strncpy(new->filename, filename, len);
 	new->next = NULL;
@@ -1577,22 +1800,22 @@ populate_list(struct file_link *list, char *path, char *base, char *match)
 	int count = 0;
 	
 	if (!(dir = opendir(path)))
-		ERR(0, "error opening directory in populate_list()", NULL)
+		ERR(63, "error opening directory in populate_list()", NULL)
 		
 	while ((file = readdir(dir))) {
 		if (strstr(file->d_name, base))
 			if (strstr(file->d_name, match)) {
-				list = add_link(list, file->d_name);
+				list = add_file_link(list, file->d_name);
 				if (!list)
-					ERR(0, "error adding link to list in populate_list()", NULL)
+					ERR(63, "error adding link to list in populate_list()", NULL)
 				count++;
 			}
 	}
 	if (!count)
-		ERR(0, "error finding any files in populate_list()", NULL)
+		ERR(63, "error finding any files in populate_list()", NULL)
 	
 	if (closedir(dir) < 0)
-		ERR(0, "error closing directory in populate_list()", NULL)
+		ERR(63, "error closing directory in populate_list()", NULL)
 	return list;
 }
 
@@ -1604,10 +1827,10 @@ get_gen_consts(char *path, char *base, char *match)
 	
 	list = populate_list(list, path, base, match);
 	if (!list)
-		ERR(0, "error populating list in get_gen_consts()", -1)
+		ERR(63, "error populating list in get_gen_consts()", -1)
 				
 	if (traverse_list(list, path, &total, &count) < 0)
-		ERR(0, "error traversing list in get_gen_consts()", -1)
+		ERR(63, "error traversing list in get_gen_consts()", -1)
 	
 	free_list(list);
 	return total / count;
@@ -1802,9 +2025,6 @@ static int
 make_vol_singleton(void)
 {
 	// stolen from amixer utility from alsa-utils
-	snd_mixer_t *handle = NULL;
-	snd_mixer_selem_id_t *sid;
-	
 	if (snd_mixer_open(&handle, 0))
 		ERR(VOLUME, "error with snd_mixer_open() in make_vol_singleton()", -1)
 	if (snd_mixer_attach(handle, "default"))
@@ -1891,25 +2111,140 @@ make_singletons(void)
 	return err;
 }
 
-static int
-alloc_strings(void)
+static struct string_link *
+make_new_link(int id, const char *heading, int bar_id, int *bar_len)
 {
-	int len;
-	char *ptr;
-	for (int i = 0; i < NUM_FLAGS; i++) {
-		switch (i) {
-			case 0: len = TOTAL_LENGTH; break;
-			case 1: len = BAR_LENGTH; break;
-			case 2: len = BAR_LENGTH; break;
-			default: len = STRING_LENGTH;
+	struct string_link *new;
+	int heading_len;
+	
+	new = malloc(sizeof(struct string_link));
+	if (!new)
+		ERR(id, "error allocating memory for new string_link in make_new_link()", NULL)
+	heading_len = strlen(heading) + 5;
+	new->heading = malloc(heading_len);
+	if (!new->heading)
+		ERR(id, "error allocating memory for string_link heading in make_new_link()", NULL)
+	new->info = calloc(1, STRING_LENGTH);
+	if (!new->info)
+		ERR(id, "error allocating memory for string_link info in make_new_link()", NULL)
+			
+	new->id = id;
+	new->bar_id = bar_id;
+	snprintf(new->heading, heading_len, " %c %s:", COLOR_HEADING, heading);
+	new->len = 0;
+	new->bar_len = bar_len;
+	new->next = NULL;
+	
+	return new;
+}
+
+static int
+get_string_link_id(const char *heading)
+{
+	int id = 0, cmp;
+	
+	cmp = strncmp(heading, "Z", 1);
+	if (cmp < 1) {
+		if (cmp == -23) {
+			if (!strcmp(heading, "CPU temp")) {
+				id = CPU_TEMP;
+			} else if (!strcmp(heading, "CPU usage")) {
+				id = CPU_USAGE;
+			}
+		} else if (!strcmp(heading, "RAM")) {
+			id = RAM;
+		} else if (!strcmp(heading, "TODO")) {
+			id = TODO;
 		}
-		ptr = malloc(len);
-		if (!ptr) {
-			SET_FLAG(err, i);
-			ERR(STATUSBAR, "error allocating memory for function string in alloc strings()", -1)
+	} else {
+		if (cmp < 19) {
+			if (cmp == 8) {
+				if (!strcmp(heading, "backup")) {
+					id = BACKUP;
+				} else if (!strcmp(heading, "battery")) {
+					id = BATTERY;
+				} else if (!strcmp(heading, "brightness")) {
+					id = BRIGHTNESS;
+				}
+			} else if (cmp == 18) {
+				if (!strcmp(heading, "load")) {
+					id = LOAD;
+				} else if (!strcmp(heading, "log")) {
+					id = LOG;
+				}
+			} else if (!strcmp(heading, "disk")) {
+				id = DISK;
+			} else if (!strcmp(heading, "fan")) {
+				id = FAN;
+			}
+		} else {
+			if (cmp < 27) {
+				if (!strcmp(heading, "network")) {
+					id = NETWORK;
+				} else if (!strcmp(heading, "portfolio")) {
+					id = PORTFOLIO;
+				} else if (!strcmp(heading, "time")) {
+					id = TIME;
+				}
+			} else {
+				if (!strcmp(heading, "volume")) {
+					id = VOLUME;
+				} else if (!strcmp(heading, "weather")) {
+					id = WEATHER;
+				} else if (!strcmp(heading, "wifi")) {
+					id = WIFI;
+				}
+			}
 		}
-		memset(ptr, '\0', len);
-		strings[i] = ptr;
+	}
+		
+	if (!id)
+		ERR(63, "error matching strings in get_string_link_id()", -1);
+			
+	return id;
+}
+
+static struct string_link *
+add_string_link(struct string_link *head, const char *heading, int bar_id, int *bar_len)
+{
+	int id;
+	struct string_link *new, **snake;
+	
+	id = get_string_link_id(heading);
+	if (id < 0)
+		ERR(63, "error getting id in add_string_link()", NULL)
+			
+	new = make_new_link(id, heading, bar_id, bar_len);
+	if (!new)
+		ERR(id, "error making new link in add_string_link()", NULL)
+	
+	// add at end to keep order
+	snake = &head;
+	while (*snake)
+		snake = &(*snake)->next;
+		
+	*snake = new;
+	
+	SET_FLAG(func, id);
+	return head;
+}
+
+static int
+populate_string_list(void)
+{
+	int i;
+	
+	for (i = 0; i < sizeof top_bar / sizeof *top_bar; i++) {
+		string_list = add_string_link(string_list, top_bar[i], TOPBAR, &top_length);
+		if (!string_list)
+			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1)
+	}
+	for (struct string_link *link = string_list; link; link = link->next)
+		separator = link->id;
+	for (i = 0; i < sizeof bottom_bar / sizeof *bottom_bar; i++) {
+		string_list = add_string_link(string_list, bottom_bar[i], BOTTOMBAR, &bottom_length);
+		if (!string_list)
+			ERR(63, "error adding link to string_list\n\tplease check config.h and restart", -1)
 	}
 	
 	return 0;
@@ -1918,37 +2253,50 @@ alloc_strings(void)
 static int
 init(Display *dpy, Window root)
 {
-	time_t curr_time;
 	int err = 0;
+	struct string_link *link;
 	
+	snprintf(error_string, 10, "%c Error%c ", COLOR_ERROR, COLOR_NORMAL);
 	populate_tm_struct();
-	err += alloc_strings();
+	if (populate_string_list() < 0)
+		exit(1);
 	err += make_singletons();
 	err += populate_lists();
 	err += get_consts(dpy);
+	err += init_portfolio();
 	
-	get_log();
-	get_TODO();
-	get_weather();
-	get_backup();
-	get_portfolio();
-	get_wifi();
-	get_time();
+	if (GET_FLAG(func, LOG)) get_log();
+	if (GET_FLAG(func, TODO)) get_TODO();
+	if (GET_FLAG(func, WEATHER)) get_weather();
+	if (GET_FLAG(func, BACKUP)) get_backup();
+	if (GET_FLAG(func, PORTFOLIO)) get_portfolio();
+	if (GET_FLAG(func, WIFI)) get_wifi();
+	if (GET_FLAG(func, TIME)) get_time();
 	
-	get_network();
-	get_disk();
-	get_RAM();
-	get_load();
-	get_cpu_usage();
-	get_cpu_temp();
-	get_fan();
+	if (GET_FLAG(func, NETWORK)) get_network();
+	if (GET_FLAG(func, DISK)) get_disk();
+	if (GET_FLAG(func, RAM)) get_RAM();
+	if (GET_FLAG(func, LOAD)) get_load();
+	if (GET_FLAG(func, CPU_USAGE)) get_cpu_usage();
+	if (GET_FLAG(func, CPU_TEMP)) get_cpu_temp();
+	if (GET_FLAG(func, FAN)) get_fan();
 	
-	get_brightness();
-	get_volume();
-	get_battery();
+	if (GET_FLAG(func, BRIGHTNESS)) get_brightness();
+	if (GET_FLAG(func, VOLUME)) get_volume();
+	if (GET_FLAG(func, BATTERY)) get_battery();
 	
-	time(&curr_time);
-	err += handle_strings(dpy, root);
+	link = string_list;
+	top_length = 0;
+	bottom_length = 0;
+	while (link) {
+		if (link->id == TODO)
+			link = link->next;
+		link->len = get_length(link);
+		*link->bar_len += link->len;
+		link = link->next;
+	}
+	
+	memset(statusbar, '\0', TOTAL_LENGTH);
 	
 	return err;
 }
@@ -1965,12 +2313,12 @@ main(void)
 	root = RootWindow(dpy, screen);
 	
 	if (init(dpy, root) < 0)
-		SIMPLE_ERR(0, "error with initialization")
+		SIMPLE_ERR(63, "error with initialization")
 	if (loop(dpy, root) < 0)
-		ERR(0, "loop broken", 1)
+		ERR(63, "loop broken", 1)
 	
-	strncpy(STRING(STATUSBAR), "Loop broken. Please check log for details.", TOTAL_LENGTH);
-	XStoreName(dpy, root, STRING(STATUSBAR));
+	strncpy(statusbar, "Loop broken. Please check log for details.", TOTAL_LENGTH);
+	XStoreName(dpy, root, statusbar);
 	XFlush(dpy);
 	
 	return 0;
