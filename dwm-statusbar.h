@@ -185,6 +185,7 @@ snd_mixer_selem_id_t *sid;
 	
 int separator;
 bool update_all = false;
+bool trunc_TODO = false;
 char weather_url[STRING_LENGTH];
 char forecast_url[STRING_LENGTH];
 int day_safe;				// due to cJSON's not being thread-safe

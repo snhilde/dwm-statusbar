@@ -81,26 +81,41 @@ copy_string(struct string_link *link, char *start)
 	memcpy(start, link->heading, head_len);
 	memcpy(start + head_len, link->info, info_len);
 	
+	if (link->id == TODO && trunc_TODO)
+		memset(start + total_len - 3, '.', 3);
+	
 	return total_len;
+}
+
+static int
+get_max_TODO_len(struct string_link *link)
+{
+	return const_bar_max_len - 32 - *link->bar_len; // 32 for tags on left side
 }
 
 static int
 handle_TODO(void)
 {
 	struct string_link *link;
-	int new_len;
+	int full_len, max_len, new_len;
 	
 	link = get_string_link(TODO);
 	if (!link)
 		ERR(TODO, "error getting TODO link in handle_TODO()", -1);
 			
-	new_len = MIN(strlen(link->heading) + strlen(link->info),
-					const_bar_max_len - 32 - *link->bar_len); // 32 for tags on left side
+	full_len = strlen(link->heading) + strlen(link->info);
+	max_len = get_max_TODO_len(link);
+	new_len = MIN(full_len, max_len);
 	
 	if (new_len != link->len) {
 		link->len = new_len;
 		update_all = true;
 	}
+	
+	if (full_len > max_len)
+		trunc_TODO = true;
+	else
+		trunc_TODO = false;
 	
 	return 0;
 }
