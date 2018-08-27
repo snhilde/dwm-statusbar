@@ -178,8 +178,8 @@ struct nl_msg *sb_msg;
 struct nl_cb *sb_cb;
 struct rtnl_handle sb_rth;
 snd_mixer_elem_t *snd_elem;
-	snd_mixer_t *handle = NULL;
-	snd_mixer_selem_id_t *sid;
+snd_mixer_t *handle = NULL;
+snd_mixer_selem_id_t *sid;
 	
 int separator;
 bool update_all = false;
@@ -199,6 +199,7 @@ int day_equity_previous_close;
 float equity_previous_close = 0.0;
 struct curl_slist *headers = NULL;
 bool wifi_connected = false;
+bool internet_connected = false;
 struct tm *tm_struct = NULL;
 
 int const_devidx;

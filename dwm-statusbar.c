@@ -369,7 +369,7 @@ parse_weather_json(char *raw_json, char *info)
 	cJSON_Delete(parsed_json);
 	return 0;
 }
-	
+
 size_t
 curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
 {
@@ -405,7 +405,7 @@ get_weather(void)
 		ERR(WEATHER, "error getting string link in get_weather()", -1);
 	
 	snprintf(link->info, STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
-	if (!wifi_connected) {
+	if (!internet_connected) {
 		need_to_get_weather = true;
 		SET_FLAG(updated, WEATHER);
 		CHECK_LENGTH(WEATHER);
@@ -602,7 +602,7 @@ run_or_skip(void)
 	cst_hour = get_cst_time(HOUR);
 	cst_day = get_cst_time(DAY);
 	
-	if (!wifi_connected)
+	if (!internet_connected)
 		return 2;
 	
 	if (!portfolio_consts_found)
@@ -680,7 +680,8 @@ get_portfolio(void)
 			CHECK_LENGTH(PORTFOLIO);
 			equity_found = true;
 		}
-	}
+	} else
+		ERR(PORTFOLIO, "error performing curl_easy_perform() in get_portfolio()", -1);
 	
 	free(portfolio_jstruct.data);
 	return 0;
@@ -1543,11 +1544,11 @@ get_account_number(void)
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
 		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_account_number()", -1);
-	if (curl_easy_perform(sb_curl) != CURLE_OK)
+	if (curl_easy_perform(sb_curl) == CURLE_OK) {
+		if (parse_account_number_json(account_number_struct.data) < 0)
+			ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1);
+	} else
 		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1);
-		
-	if (parse_account_number_json(account_number_struct.data) < 0)
-		ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1);
 	
 	free(account_number_struct.data);
 	return 0;
@@ -1570,9 +1571,6 @@ parse_token_json(char *raw_json)
 static int
 get_token(void)
 {
-	if (GET_FLAG(err, PORTFOLIO))
-		return -1;
-	
 	struct data_struct token_struct;
 	struct curl_slist *header = NULL;
 	
@@ -1594,12 +1592,12 @@ get_token(void)
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
 		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_token()", -1);
-	if (curl_easy_perform(sb_curl) != CURLE_OK)
+	if (curl_easy_perform(sb_curl) == CURLE_OK) {
+		if (parse_token_json(token_struct.data) < 0)
+			ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1);
+	} else
 		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1);
 		
-	if (parse_token_json(token_struct.data) < 0)
-		ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1);
-	
 	free(token_struct.data);
 	curl_slist_free_all(header);
 	return 0;
@@ -1622,6 +1620,30 @@ init_portfolio()
 	return 0;
 }
 
+size_t
+discard_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	// same as writing to /dev/null
+	return size * nmemb;
+}
+
+static int
+check_conn(void)
+{
+	curl_easy_reset(sb_curl);
+	CURLcode code;
+	
+	curl_easy_setopt(sb_curl, CURLOPT_URL, "https://www.google.com/");
+	curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, discard_callback);
+	code = curl_easy_perform(sb_curl);
+	if (code == CURLE_OK)
+		internet_connected = true;
+	else
+		internet_connected = false;
+	
+	return 0;
+}
+
 static int
 populate_tm_struct(void)
 {
@@ -1640,15 +1662,16 @@ loop(Display *dpy, Window root)
 	int err = 0;
 	
 	while (1) {
-		// get times
 		err += populate_tm_struct();
+		if (!internet_connected)
+			check_conn();
 		
 		// // run every second
 		if (GET_FLAG(func, TIME)) get_time();
-		if (GET_FLAG(func, TIME)) get_network();
-		if (GET_FLAG(func, TIME)) get_cpu_usage();
-		if (GET_FLAG(func, TIME)) get_volume();
-		if (wifi_connected) {
+		if (GET_FLAG(func, NETWORK)) get_network();
+		if (GET_FLAG(func, CPU_USAGE)) get_cpu_usage();
+		if (GET_FLAG(func, VOLUME)) get_volume();
+		if (internet_connected) {
 			if (GET_FLAG(func, WEATHER) && need_to_get_weather)
 				get_weather();
 			if (GET_FLAG(func, PORTFOLIO) && !portfolio_consts_found)
@@ -1659,32 +1682,27 @@ loop(Display *dpy, Window root)
 		
 		// run every five seconds
 		if (tm_struct->tm_sec % 5 == 0) {
-			if (GET_FLAG(func, TIME)) get_log();
-			if (GET_FLAG(func, TIME)) get_TODO();
-			if (GET_FLAG(func, TIME)) get_backup();
-			if (GET_FLAG(func, TIME)) get_portfolio();
-			if (GET_FLAG(func, TIME)) get_wifi();
-			if (GET_FLAG(func, TIME)) get_RAM();
-			if (GET_FLAG(func, TIME)) get_load();
-			if (GET_FLAG(func, TIME)) get_cpu_temp();
-			if (GET_FLAG(func, TIME)) get_fan();
-			if (GET_FLAG(func, TIME)) get_brightness();
-			if (GET_FLAG(func, TIME)) get_battery();
+			if (GET_FLAG(func, LOG)) get_log();
+			if (GET_FLAG(func, TODO)) get_TODO();
+			if (GET_FLAG(func, BACKUP)) get_backup();
+			if (GET_FLAG(func, PORTFOLIO)) get_portfolio();
+			if (GET_FLAG(func, WIFI)) get_wifi();
+			if (GET_FLAG(func, RAM)) get_RAM();
+			if (GET_FLAG(func, LOAD)) get_load();
+			if (GET_FLAG(func, CPU_TEMP)) get_cpu_temp();
+			if (GET_FLAG(func, FAN)) get_fan();
+			if (GET_FLAG(func, BRIGHTNESS)) get_brightness();
+			if (GET_FLAG(func, BATTERY)) get_battery();
 		}
 		
 		// run every minute
 		if (tm_struct->tm_sec == 0) {
-			if (GET_FLAG(func, TIME)) get_disk();
+			if (GET_FLAG(func, DISK)) get_disk();
 		}
 		
 		// run every 3 hours
 		if ((tm_struct->tm_hour + 1) % 3 == 0 && tm_struct->tm_min == 0 && tm_struct->tm_sec == 0) {
-			if (GET_FLAG(func, WEATHER)) {
-				if (!wifi_connected)
-					need_to_get_weather = true;
-				else
-					get_weather();
-			}
+			if (GET_FLAG(func, WEATHER)) get_weather();
 		}
 		
 		err += handle_strings(dpy, root);
@@ -2261,6 +2279,7 @@ init(Display *dpy, Window root)
 	if (populate_string_list() < 0)
 		exit(1);
 	err += make_singletons();
+	err += check_conn();
 	err += populate_lists();
 	err += get_consts(dpy);
 	err += init_portfolio();
