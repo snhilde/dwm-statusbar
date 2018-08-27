@@ -1150,21 +1150,27 @@ get_cpu_usage(void)
 	if (GET_FLAG(err, CPU_USAGE))
 		return -1;
 	
-	// calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
-	/* from top.c */
+	/*  calculation: sum amounts of time cpu spent working vs idle each second, calculate percentage
+		from /proc/stat, cpu time spent in each mode:
+		line 1: user mode
+		line 2: nice user mode
+		line 3: system mode
+		line 4: idle mode
+		line 5: time spent waiting for I/O to complete
+		line 6: time spent on interrupts
+		line 7: time servicing softirqs
+	*/
 	struct string_link *link;
 	int i;
 	FILE *fd;
 	char line[64];
 	int cpu[2][7];
-	int working[2] = {0, 0}, total[2] = {0, 0};
-	int working_diff, total_diff, perc;
+	int working_diff = 0, total_diff = 0, perc;
 	static int old_perc;
 	
 	link = get_string_link(CPU_USAGE);
 	if (!link)
 		ERR(CPU_USAGE, "error getting string link in get_cpu_usage()", -1);
-	
 	
 	for (i = 0; i < 2; i++) {
 		fd = fopen(CPU_USAGE_FILE, "r");
@@ -1174,14 +1180,6 @@ get_cpu_usage(void)
 		if (fclose(fd))
 			ERR(CPU_USAGE, "error closing CPU usage file in get_cpu_usage()", -1);
 		
-		/* from /proc/stat, cpu time spent in each mode:
-		line 1: user mode
-		line 2: nice user mode
-		line 3: system mode
-		line 4: idle mode
-		line 5: time spent waiting for I/O to complete
-		line 6: time spent on interrupts
-		line 7: time servicing softirqs */
 		sscanf(line, "cpu %d %d %d %d %d %d %d", &cpu[i][0], &cpu[i][1], &cpu[i][2], &cpu[i][3],
 				&cpu[i][4], &cpu[i][5], &cpu[i][6]);
 		
@@ -1189,18 +1187,11 @@ get_cpu_usage(void)
 	}
 
 	for (i = 0; i < 7; i++) {
-		total[0] += cpu[0][i];
-		total[1] += cpu[1][i];
-		
+		total_diff += cpu[1][i] - cpu[0][i];
 		if (i == 3) continue;	// skip idle time
-		
-		working[0] += cpu[0][i];
-		working[1] += cpu[1][i];
+		working_diff += cpu[1][i] - cpu[0][i];
 	}
 		
-	working_diff = working[1] - working[0] + 1;
-	total_diff = total[1] - total[0] + 1;
-	
 	perc = rint((double)working_diff / (double)total_diff * 100);
 	perc *= const_cpu_ratio;
 	
