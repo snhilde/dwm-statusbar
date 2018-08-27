@@ -176,7 +176,7 @@ get_log(void)
 			memset(link->info, '\0', strlen(link->info));
 		
 		SET_FLAG(updated, LOG);
-		CHECK_LENGTH(LOG);
+		CHECK_LENGTH(link);
 	}
 	return 0;
 }
@@ -408,7 +408,7 @@ get_weather(void)
 	if (!internet_connected) {
 		need_to_get_weather = true;
 		SET_FLAG(updated, WEATHER);
-		CHECK_LENGTH(WEATHER);
+		CHECK_LENGTH(link);
 		return -1;
 	}
 	
@@ -442,7 +442,7 @@ get_weather(void)
 	}
 	
 	SET_FLAG(updated, WEATHER);
-	CHECK_LENGTH(WEATHER);
+	CHECK_LENGTH(link);
 	
 	return 0;
 }
@@ -534,7 +534,7 @@ get_backup(void)
 				color, status, COLOR_NORMAL);
 		
 		SET_FLAG(updated, BACKUP);
-		CHECK_LENGTH(BACKUP);
+		CHECK_LENGTH(link);
 		backup_occurring = true;
 	}
 		
@@ -649,7 +649,7 @@ get_portfolio(void)
 		case 1: return 0;
 		case 2: snprintf(link->info, STRING_LENGTH, "%cN/A ", COLOR_NORMAL);
 				SET_FLAG(updated, PORTFOLIO);
-				CHECK_LENGTH(PORTFOLIO);
+				CHECK_LENGTH(link);
 				return -2;
 	}
 	
@@ -677,7 +677,7 @@ get_portfolio(void)
 					equity >= equity_previous_close ? GREEN_TEXT : RED_TEXT, equity);
 			
 			SET_FLAG(updated, PORTFOLIO);
-			CHECK_LENGTH(PORTFOLIO);
+			CHECK_LENGTH(link);
 			equity_found = true;
 		}
 	} else
@@ -871,7 +871,7 @@ get_wifi(void)
 			
 	format_wifi_status(ssid_string, link->info, color);
 	SET_FLAG(updated, WIFI);		
-	CHECK_LENGTH(WIFI);		
+	CHECK_LENGTH(link);		
 	
 	free(ssid_string);
 	return 0;
@@ -895,7 +895,7 @@ get_time(void)
 		link->info[strlen(link->info) - 3] = ' ';
 	
 	SET_FLAG(updated, TIME);
-	CHECK_LENGTH(TIME);
+	CHECK_LENGTH(link);
 	
 	return 0;
 }
@@ -991,7 +991,7 @@ get_network(void)
 				tx_unit == 'M' ? COLOR_WARNING : COLOR_NORMAL, tx_bps, tx_unit, COLOR_NORMAL);
 	
 		SET_FLAG(updated, NETWORK);
-		CHECK_LENGTH(NETWORK);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1054,7 +1054,7 @@ get_disk(void)
 				COLOR_NORMAL);
 		
 		SET_FLAG(updated, DISK);
-		CHECK_LENGTH(DISK);
+		CHECK_LENGTH(link);
 	}
 
 	return 0;
@@ -1088,7 +1088,7 @@ get_RAM(void)
 				memperc, COLOR_NORMAL);
 	
 		SET_FLAG(updated, RAM);
-		CHECK_LENGTH(RAM);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1121,7 +1121,7 @@ get_load(void)
 				loadavg[0], loadavg[1], loadavg[2], COLOR_NORMAL);
 		
 		SET_FLAG(updated, LOAD);
-		CHECK_LENGTH(LOAD);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1205,7 +1205,7 @@ get_cpu_usage(void)
 				total, COLOR_NORMAL);
 		
 		SET_FLAG(updated, CPU_USAGE);
-		CHECK_LENGTH(CPU_USAGE);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1275,7 +1275,7 @@ get_cpu_temp(void)
 				temp, COLOR_NORMAL);
 		
 		SET_FLAG(updated, CPU_TEMP);
-		CHECK_LENGTH(CPU_TEMP);
+		CHECK_LENGTH(link);
 	}
 
 	return 0;
@@ -1316,7 +1316,7 @@ get_fan(void)
 					fanperc, COLOR_NORMAL);
 		
 		SET_FLAG(updated, FAN);
-		CHECK_LENGTH(FAN);
+		CHECK_LENGTH(link);
 	}
 
 	return 0;
@@ -1367,7 +1367,7 @@ get_brightness(void)
 				COLOR_NORMAL, scrn_perc, COLOR_NORMAL);
 		
 		SET_FLAG(updated, BRIGHTNESS);
-		CHECK_LENGTH(BRIGHTNESS);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1402,7 +1402,7 @@ get_volume(void)
 					COLOR_NORMAL, COLOR_NORMAL);
 			
 			SET_FLAG(updated, VOLUME);
-			CHECK_LENGTH(VOLUME);
+			CHECK_LENGTH(link);
 		}
 	} else {
 		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
@@ -1419,7 +1419,7 @@ get_volume(void)
 					COLOR_NORMAL, volperc, COLOR_NORMAL);
 				
 			SET_FLAG(updated, VOLUME);
-			CHECK_LENGTH(VOLUME);
+			CHECK_LENGTH(link);
 		}
 	}
 	
@@ -1461,7 +1461,7 @@ get_battery(void)
 					COLOR1, COLOR_NORMAL);
 			
 			SET_FLAG(updated, BATTERY);
-			CHECK_LENGTH(BATTERY);
+			CHECK_LENGTH(link);
 			
 			return 0;
 		}
@@ -1492,7 +1492,7 @@ get_battery(void)
 				status > 0 ? '+' : '-', capacity, COLOR_NORMAL);
 		
 		SET_FLAG(updated, BATTERY);
-		CHECK_LENGTH(BATTERY);
+		CHECK_LENGTH(link);
 	}
 	
 	return 0;
@@ -1523,9 +1523,6 @@ parse_account_number_json(char *raw_json)
 static int
 get_account_number(void)
 {
-	if (GET_FLAG(err, PORTFOLIO))
-		return -1;
-	
 	struct data_struct account_number_struct;
 	
 	curl_easy_reset(sb_curl);
@@ -1618,6 +1615,7 @@ init_portfolio()
 	snprintf(portfolio_url, STRING_LENGTH,
 			"https://api.robinhood.com/accounts/%s/portfolio/", account_number);
 	portfolio_consts_found = true;
+	REMOVE_FLAG(err, PORTFOLIO);
 	
 	return 0;
 }

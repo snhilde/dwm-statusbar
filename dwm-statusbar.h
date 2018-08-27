@@ -105,7 +105,7 @@
 #define GET_FLAG(flag, id) \
 	flag ## _flags & 1UL << id
 
-#define CHECK_LENGTH(id) \
+#define CHECK_LENGTH(link) \
 	int new_len = get_length(link); \
 	if (link->len != new_len) { \
 		*link->bar_len += (new_len - link->len); \
@@ -121,7 +121,9 @@
 
 #define ERR(id, val, ret) \
 	{ SIMPLE_ERR(id, val) \
-	strncpy(get_string_link(id)->info, error_string, get_length(get_string_link(id))); \
+	struct string_link *err_link = get_string_link(id); \
+	strncpy(err_link->info, error_string, get_length(err_link)); \
+	CHECK_LENGTH(err_link) \
 	return ret; }
 
 struct data_struct {
