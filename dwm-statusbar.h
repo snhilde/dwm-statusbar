@@ -181,7 +181,6 @@ struct nl_cb *sb_cb;
 struct rtnl_handle sb_rth;
 snd_mixer_elem_t *snd_elem;
 snd_mixer_t *handle = NULL;
-snd_mixer_selem_id_t *sid;
 	
 bool init_done = false;
 int separator;

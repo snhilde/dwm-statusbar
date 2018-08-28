@@ -2059,6 +2059,8 @@ static int
 make_vol_singleton(void)
 {
 	// stolen from amixer utility from alsa-utils
+	snd_mixer_selem_id_t *sid;
+
 	if (snd_mixer_open(&handle, 0))
 		ERR(VOLUME, "error with snd_mixer_open() in make_vol_singleton()", -1);
 	if (snd_mixer_attach(handle, "default"))
