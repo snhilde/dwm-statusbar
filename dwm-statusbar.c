@@ -16,7 +16,7 @@ get_string_link(int id)
 }
 
 static int
-get_padding(char *ptr)
+add_padding(char *ptr)
 {
 	if (GET_FLAG(err, BOTTOMBAR))
 		return 0;
@@ -28,7 +28,8 @@ get_padding(char *ptr)
 	else
 		pad = 0;
 	
-	memset(ptr, ' ', pad);
+	if (update_all)
+		memset(ptr, ' ', pad);
 	
 	return pad;
 }
@@ -149,7 +150,7 @@ handle_strings(Display *dpy, Window root)
 		}
 		if (separator == link->id) {
 			format_top_bar(&start);
-			start += get_padding(start);
+			start += add_padding(start);
 		}
 		link = link->next;
 	}
