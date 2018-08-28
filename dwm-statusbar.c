@@ -187,7 +187,7 @@ get_log(void)
 		ERR(LOG, "error getting dwm-statusbar.log file stats in get_log()", -1);
 			
 	mtime = MAX(dwm_stat.st_mtime, sb_stat.st_mtime);
-	if (old_mtime != mtime) {
+	if (old_mtime != mtime || !init_done) {
 		old_mtime = mtime;
 			
 		if ((intmax_t)dwm_stat.st_size > 1)
@@ -692,7 +692,7 @@ get_portfolio(void)
 		if ((equity = parse_portfolio_json(portfolio_jstruct.data)) < 0)
 			ERR(PORTFOLIO, "error parsing portfolio json in get_portfolio()", -1);
 				
-		if (old_equity != equity) {
+		if (old_equity != equity || !init_done) {
 			old_equity = equity;
 			
 			snprintf(link->info, STRING_LENGTH, "%c%.2lf ",
@@ -1004,7 +1004,7 @@ get_network(void)
 	if (old_rx_bps != rx_bps ||
 		old_tx_bps != tx_bps ||
 		old_rx_unit != rx_unit ||
-		old_tx_unit != tx_unit) {
+		old_tx_unit != tx_unit || !init_done) {
 		old_rx_bps = rx_bps;
 		old_tx_bps = tx_bps;
 		old_rx_unit = rx_unit;
@@ -1069,7 +1069,7 @@ get_disk(void)
 	process_stat(&root_fs);
 	rootperc = rint((double)root_fs.bytes_used / (double)root_fs.bytes_total * 100);
 	
-	if (old_rootperc != rootperc) {
+	if (old_rootperc != rootperc || !init_done) {
 		old_rootperc = rootperc;
 	
 		snprintf(link->info, STRING_LENGTH, "%c %.1f%c/%.1f%c%c ", 
@@ -1104,7 +1104,7 @@ get_RAM(void)
 	if (memperc > 99)
 		memperc = 99;
 	
-	if (old_memperc != memperc) {
+	if (old_memperc != memperc || !init_done) {
 		old_memperc = memperc;
 	
 		snprintf(link->info, STRING_LENGTH, "%c %2d%% used%c ",
@@ -1136,7 +1136,7 @@ get_load(void)
 	
 	if (old_loadavg[0] != loadavg[0] * 100 ||
 		old_loadavg[1] != loadavg[1] * 100 ||
-		old_loadavg[2] != loadavg[2] * 100) {
+		old_loadavg[2] != loadavg[2] * 100 || !init_done) {
 		for (int i = 0; i < 3; i++)
 			old_loadavg[i] = loadavg[i] * 100;
 		
@@ -1204,7 +1204,7 @@ get_cpu_usage(void)
 	
 	if (perc >= 100) perc = 99;
 	
-	if (old_perc != perc) {
+	if (old_perc != perc || !init_done) {
 		old_perc = perc;
 		
 		snprintf(link->info, STRING_LENGTH, "%c %2d%%%c ",
@@ -1274,7 +1274,7 @@ get_cpu_temp(void)
 	temp >>= 10;
 	
 	
-	if (old_temp != temp) {
+	if (old_temp != temp || !init_done) {
 		old_temp = temp;
 		
 		snprintf(link->info, STRING_LENGTH, "%c %2d degC%c ",
@@ -1312,7 +1312,7 @@ get_fan(void)
 	
 	fanperc = rint((double)rpm / (double)const_fan_max * 100);
 	
-	if (old_fanperc != fanperc) {
+	if (old_fanperc != fanperc || !init_done) {
 		old_fanperc = fanperc;
 	
 		if (fanperc >= 100)
@@ -1361,8 +1361,7 @@ get_brightness(void)
 	if (DISPLAY_KBD)
 		kbd_perc = rint((double)kbd / (double)const_kbd_brightness_max * 100);
 	
-	if (old_scrn_perc != scrn_perc ||
-		old_kbd_perc != kbd_perc) {
+	if (old_scrn_perc != scrn_perc || old_kbd_perc != kbd_perc || !init_done) {
 		old_scrn_perc = scrn_perc;
 		old_kbd_perc = kbd_perc;
 		
@@ -1398,19 +1397,14 @@ get_volume(void)
 	snd_mixer_handle_events(handle);	// reloads control
 	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
 		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1);
-	swch++;		// because comparisons with 0 gets cumbersome on initialization
-	if (swch == 1) {
-		if (old_swch == swch)
-			return 0;
-		else {
-			old_swch = swch;
-			
-			snprintf(link->info, STRING_LENGTH, "%cmute%c ",
-					COLOR_NORMAL, COLOR_NORMAL);
-			
-			SET_FLAG(updated, VOLUME);
-			CHECK_LENGTH(link);
-		}
+	if (!swch && old_swch != swch || !init_done) {
+		old_swch = swch;
+		
+		snprintf(link->info, STRING_LENGTH, "%cmute%c ",
+				COLOR_NORMAL, COLOR_NORMAL);
+		
+		SET_FLAG(updated, VOLUME);
+		CHECK_LENGTH(link);
 	} else {
 		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
 			ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume() in get_volume()", -1);
@@ -1419,7 +1413,7 @@ get_volume(void)
 		volperc = (double)pvol / const_vol_range * 100;
 		volperc = rint((float)volperc / 10) * 10;
 		
-		if (old_perc != volperc) {
+		if (old_perc != volperc || !init_done) {
 			old_perc = volperc;
 		
 			snprintf(link->info, STRING_LENGTH, "%c%3d%%%c ",
@@ -1459,9 +1453,7 @@ get_battery(void)
 		ERR(BATTERY, "error closing battery status file in get_battery()", -1);
 
 	if (!strcmp(status_string, "Full") || !strcmp(status_string, "Unknown")) {
-		if (!old_status && link->len)
-			return 0;
-		else {
+		if (old_status && init_done) {
 			old_status = 0;
 			
 			snprintf(link->info, STRING_LENGTH, "%c full %c ",
@@ -1491,8 +1483,9 @@ get_battery(void)
 	if (capacity > 99)
 		capacity = 99;
 	
-	if (old_capacity != capacity) {
+	if (old_capacity != capacity || !init_done) {
 		old_capacity = capacity;
+		old_status = status;
 			
 		snprintf(link->info, STRING_LENGTH, " %c %c%2d%% %c ",
 				capacity < 20 ? COLOR_ERROR : status > 0 ? COLOR2 : COLOR_WARNING,
@@ -1550,11 +1543,11 @@ get_account_number(void)
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &account_number_struct) != CURLE_OK)
 		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_account_number()", -1);
-	if (curl_easy_perform(sb_curl) == CURLE_OK) {
+	if (curl_easy_perform(sb_curl) != CURLE_OK) {
+		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1);
+	} else
 		if (parse_account_number_json(account_number_struct.data) < 0)
 			ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1);
-	} else
-		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1);
 	
 	free(account_number_struct.data);
 	return 0;
@@ -1598,11 +1591,13 @@ get_token(void)
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEFUNCTION, curl_callback) != CURLE_OK ||
 			curl_easy_setopt(sb_curl, CURLOPT_WRITEDATA, &token_struct) != CURLE_OK)
 		ERR(PORTFOLIO, "error with curl_easy_setopt() in get_token()", -1);
-	if (curl_easy_perform(sb_curl) == CURLE_OK) {
+	
+	if (curl_easy_perform(sb_curl) != CURLE_OK) {
+		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1);
+	} else {
 		if (parse_token_json(token_struct.data) < 0)
 			ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1);
-	} else
-		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1);
+	}
 		
 	free(token_struct.data);
 	curl_slist_free_all(header);
@@ -1610,7 +1605,7 @@ get_token(void)
 }
 
 static int
-init_portfolio()
+init_portfolio(void)
 {
 	if (!sb_curl)
 		return -1;
@@ -2344,6 +2339,7 @@ init(Display *dpy, Window root)
 	}
 	
 	memset(statusbar, '\0', TOTAL_LENGTH);
+	init_done = true;
 	
 	return err;
 }
