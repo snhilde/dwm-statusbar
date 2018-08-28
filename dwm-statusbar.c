@@ -144,9 +144,8 @@ handle_strings(Display *dpy, Window root)
 			if (update_all || GET_FLAG(updated, link->id)) {
 				start += copy_string(link, start);
 				REMOVE_FLAG(updated, link->id);
-			} else {
+			} else
 				start += link->len;
-			}
 		}
 		if (separator == link->id) {
 			format_top_bar(&start);
@@ -219,7 +218,8 @@ get_TODO(void)
 		// dumb function
 		struct string_link *link;
 		FILE *fd;
-		char line[STRING_LENGTH];
+		char *line, *mover;
+		int i;
 		
 		link = get_string_link(TODO);
 		if (!link)
@@ -229,34 +229,29 @@ get_TODO(void)
 		if (!fd)
 			ERR(TODO, "error opening TODO file in get_TODO()", -1);
 				
-		// line 1
-		if (!fgets(line, STRING_LENGTH, fd)) {
-			strncpy(link->info, "All tasks completed!", STRING_LENGTH - 1);
-			return 0;
-		}
-		line[strlen(line) - 1] = '\0'; // remove weird characters at end
-		snprintf(link->info, STRING_LENGTH, "%c%s ", COLOR_NORMAL, line);
-		
-		// lines 2 and 3
-		for (int i = 0; i < 2; i++) {
-			memset(line, '\0', STRING_LENGTH);
-			if (!fgets(line, STRING_LENGTH, fd)) break;
-			line[strlen(line) - 1] = '\0'; // remove weird characters at end
-			switch (line[i]) {
+		// line[strlen(line) - 1] = '\0'; // remove weird characters at end
+		line = calloc(1, STRING_LENGTH);
+		fgets(line, STRING_LENGTH, fd);
+		*link->info = COLOR_NORMAL;
+		for (i = 0, mover = line; i < 3; i++, fgets(line, STRING_LENGTH, fd), mover = line) {
+			switch (*mover) {
 				case '\0': break;
 				case '\n': break;
 				case '\t':
-					memmove(line, line + i + 1, strlen(line));
-					strncat(link->info, " -> ", -2);
-					strncat(link->info, line, STRING_LENGTH - strlen(link->info));
+					while (*mover == '\t') {
+						mover++;
+						strncat(link->info, " -> ", STRING_LENGTH - strlen(link->info));
+					}
 					break;
 				default:
-					if (i == 1) break;
+					if (i == 0) break;
 					strncat(link->info, " | ", STRING_LENGTH - strlen(link->info));
-					strncat(link->info, line, STRING_LENGTH - strlen(link->info));
 					break;
 			}
+			strncat(link->info, mover, STRING_LENGTH - strlen(link->info));
+			link->info[strlen(link->info) - 1] = '\0';	// remove newline
 		}
+		free(line);
 		
 		if (fclose(fd))
 			ERR(TODO, "error closing TODO file in get_TODO()", -1);
