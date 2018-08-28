@@ -30,7 +30,6 @@
 #include <math.h>
 
 #define STRING_LENGTH			128
-#define BAR_LENGTH				512
 #define TOTAL_LENGTH			1024
 #define UTC_TO_CST_SECONDS		18000
 #define HOUR					0
