@@ -181,29 +181,32 @@ struct rtnl_handle sb_rth;
 snd_mixer_elem_t *snd_elem;
 snd_mixer_t *handle = NULL;
 	
-bool init_done = false;
-int separator;
+// booleans
 bool update_all = false;
 bool trunc_TODO = false;
-char weather_url[STRING_LENGTH];
-char forecast_url[STRING_LENGTH];
-int day_safe;				// due to cJSON's not being thread-safe
-int temp_today;
+bool internet_connected = false;
 bool need_to_get_weather = true;
 bool backup_occurring = false;
+bool need_equity_previous_close = true;
 bool equity_found = false;
 bool portfolio_consts_found = false;
+bool wifi_connected = false;
+bool init_done = false;
+
+int separator;
+char weather_url[STRING_LENGTH];
+char forecast_url[STRING_LENGTH];
+int day_safe;	// due to cJSON's not being thread-safe
+int temp_today;
 char portfolio_url[STRING_LENGTH];
 char token_header[STRING_LENGTH];
 char account_number[STRING_LENGTH];
-bool need_equity_previous_close = true;
 int day_equity_previous_close;
 float equity_previous_close = 0.0;
 struct curl_slist *headers = NULL;
-bool wifi_connected = false;
-bool internet_connected = false;
 struct tm *tm_struct = NULL;
 
+// constant init values
 int const_devidx;
 int const_block_size;
 int const_bar_max_len;
