@@ -276,7 +276,7 @@ Send a pull request or a message. Additional functionality is welcome, as are su
 Hilde N
 
 ## Version ##
-[Semantic Versioning](#https://semver.org/)
+[Semantic Versioning](https://semver.org/)
 2.0.1
 
 ## License ##
