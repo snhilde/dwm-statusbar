@@ -16,6 +16,7 @@ Currently, it displays this system information:
 * System volume
 * Battery usage/status
 * WiFi status
+* Time
 
 ... and this user information:
 * TODO list updates
@@ -39,6 +40,7 @@ Currently, it displays this system information:
 * [Future Additions](#future-additions)
 * [Contributing](#contributing)
 * [Author](#author)
+* [Version](#version)
 * [License](#license)
 * [Acknowledgments](#acknowledgments)
 
@@ -93,16 +95,18 @@ To start the program when X11 starts up (and you know you want to), add this lin
 ```
 This will start the program, log the errors to dwm-statusbar.log, and not block the queue during startup.
 
+If you are having troubles getting DWM StatusBar to run correctly, check out the [Macros](#macros) section first.
 
 ## Getting Started ##
+To choose which parts of the program you want displayed on your setup, edit config.h, placing your selections in each bar according to the order that you want them displayed.
+
 Because DWM StatusBar is designed to parse information thoroughly and with as little overhead as possible, there are some things that you will need to set up on your end to get the program running correctly. If you don't want to set up everything as instructed below, you should modify the source code to reflect your preferences.
 
-For example, if you don't want to display the status of your backups, you should comment out **BOTH** function calls for `get_log_status()` in `loop()` and `init()` and remove the mention of `log_status_string` in `format_string()` for good measure. This is the simplest way to remove functionality. To change functionality, you will need to get your hands dirty and edit the source code directly.
+For example, if you don't want to display the status of your backups, you should remove `"backup"` from config.h. This will remove functionality. To change functionality, you will need to get your hands dirty and edit the source code directly.
 
-Let's roll up our sleeves.
-
+Here are the major points of configuration:
 #### TODO file ####
-I keep an ongoing TODO file for projects and languages and life and everything else that needs to be checked off. It is formatted like this:
+DWM StatusBar looks for a TODO file formatted like this:
 ```
 Project Heading
 	Current task
@@ -121,34 +125,26 @@ Another Project
 5. If there are no tasks but there is another project, it is printed with a separating "|".
 6. No more than three lines are ever concatenated and printed (max one task and one subtask).
 
-Are we having fun yet?
-
 #### Log status ####
 I keep my error logs for dwm and DWM StatusBar in a `.logs` directory in my home folder. This part of the program checks if there are errors in either log file and displays a message to check the log(s) if there are. To quiet the message, run `echo > /path/to/logfile` to reset the log.
-
-Now we're warming up
 
 #### Weather (current and forecast) ####
 I might get rid of this section soon. I made it more for a learning opportunity than to get much-needed value. Let's be real; we all use our phones to check the weather. This function gets weather data for your location and outputs the current temp and highs/lows for the rest of the day and the next three days. If there is a forecast for rain, the day gets highlighted. There is no functionality yet for other major weather patterns. Sorry, Russia.
 
 To get data for your location, you will need to find your city's ID [here](https://openweathermap.org/appid). While you're there, also study up on getting your own free API key. You're not using mine. Your city ID will go in the header for the macro `LOCATION`, and the API key will go in the macro `KEY`.
 
-This is where it gets real
-
 #### Backup status ####
-This one is a whole other beast. I won't feel bad at all if you decide to leave it out (by removing the function calls in `init()` and `loop()`). We're all friends here. 
+This one is a whole other beast. I won't feel bad at all if you decide to leave it out (by modifying config.h).
 
-If you do leave it in, you will need to customize the function heavily. My script creates a backup, encrypts it, and uploads it to a server, and prints each of those steps into a log file. The function parses that file for those strings or error codes like this:
+If you do leave it in, you will need to customize the function heavily. My script creates a backup, encrypts it, and uploads it to a server, and prints each of those steps into a log file. This function parses that file for those strings or error codes like this:
 1. If the contents of the file are digits, then it parses the number for an error code in `parse_error_code(int code)`. That code is converted into an error message and printed to the bar.
 2. If the contents of the file are digits but not an error code, then it must be the time in seconds since the epoch when the backup was completed. This number is calculated against the current time to get the time elapsed and printed accordingly.
 3. If the contents of the file are not digits, then the string is printed straight to the bar.
 
 To customize this function, you will want to update the error codes of your backup script, chiefly.
 
-**Nice work**
-
-
 ## Macros ##
+If things are not working well, this should be the first place you visit.
 
 Because computers differ, there are a few things that you must configure before running DWM StatusBar. All values and options are contained in the header file. Let's walk through them:
 - - - -
@@ -175,18 +171,6 @@ const char color8 = '';
 These colors correspond to the colors that you defined in your config.h for DWM. Make any changes you think are pretty.
 - - - -
 ```
-#define WIFI_INTERFACE			"wlp4s0"
-```
-The name of your wireless device. You can find it by running `iw dev` or `ip link`.
-- - - -
-```
-#define DISPLAY_KBD			true
-```
-True if you want to also display the keyboard backlight, false if not.
-- - - -
-**The next items are locations of files that you should localize for your system:**
-- - - -
-```
 #define TODO_FILE			"/home/user/.TODO"
 ```
 Your personal TODO file
@@ -195,6 +179,10 @@ Your personal TODO file
 #define STATUSBAR_LOG_FILE		"/home/user/.logs/dwm-statusbar.log"
 ```
 The log file for DWM StatusBar's errors
+```
+#define DWM_LOG_FILE			"/home/user/.logs/dwm.log"
+```
+The log file for dwm
 - - - -
 ```
 #define BACKUP_STATUS_FILE		"/home/user/.backup/.sb"
@@ -227,9 +215,9 @@ Your personal config file for dwm
 The directory for accessing CPU temperature data. It will include files like "temp1_input" and others. DWM StatusBar automatically finds and parses all the temperature files in the directory.
 - - - -
 ```
-#define FAN_SPEED_FILE			"/sys/class/hwmon/hwmon2/device/fan1_input"
+#define FAN_SPEED_DIR			"/sys/class/hwmon/hwmon2/device/"
 ```
-The file that corresponds to the fan for the CPU
+The directory that corresponds to the fan for the CPU. It will include files like "fan1_input" and others.
 - - - -
 ```
 #define SCREEN_BRIGHTNESS_FILE		"/sys/class/backlight/nvidia_backlight/brightness"
@@ -239,14 +227,27 @@ This will change depending on the video driver you use
 ```
 #define KBD_BRIGHTNESS_FILE		"/sys/class/leds/smc::kbd_backlight/brightness"
 ```
-If you don't have a keyboard backlight, make sure you switch the DISPLAY_KBD macro to "false"
-
+If you don't have a keyboard backlight, just delete this line.
+- - - -
+```
+#define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
+```
+The system file that holds battery status in text format, like "Full" or "Charging"
+- - - -
+```
+#define BATT_CAPACITY_FILE			"/sys/class/power_supply/BAT0/capacity"
+```
+The system file that holds the percentage of battery left
+- - - -
+```
+#define WIFI_INTERFACE			"wlp4s0"
+```
+The name of your wireless device. You can find it by running `iw dev` or `ip link`.
 
 ## Testing ##
-
 Testing individual functions is very easy, especially in dwm.
 
-To limit the program to one or more specific functions, just comment out the function call in **BOTH** `init()` and `loop()`. You must do both, or you will be very confused. Please share the results of your tests with the community to better the project.
+To limit the program to one or more specific functions, just comment out or delete functions from config.h. Please share the results of your tests with the community to better the project.
 
 #### Valgrind ####
 This is the reference command for running the *memcheck* program in valgrind:
@@ -264,28 +265,24 @@ XCreateFontSet (in /usr/lib/libX11.so.6.3.0)
 				
 I have been unable to figure out how to fix this leak so far. Because `XCreateFontSet` gets called just one time (in the initialization), there is a total leak of only 200 bytes during the entire life of the program. That's not bad, so I'm leaving it as is for now until a rainy day.
 
-## Contributing ##
-
-Send a pull request or a message. Additional functionality is welcome, as are suggestions to make the program leaner, faster, and better performing. #LebronThisCode
-
 ## Future Additions ##
-
 * Currently, the program only handles WiFi connectivity. Let's add other connections as well.
 * Fork certain functions (like `get_weather()`) into a separate thread.
 
+## Contributing ##
+Send a pull request or a message. Additional functionality is welcome, as are suggestions to make the program leaner, faster, and better performing.
 
 ## Author ##
-
 Hilde N
 
+## Version ##
+[Semantic Versioning](#https://semver.org/)
+2.0.1
 
 ## License ##
-
 This project is licensed under the MIT License. Do whatever you want with it. See the [LICENSE.md](LICENSE.md) file for details
 
-
 ## Acknowledgments ##
-
 * Jean Tourrilhes and the developers of the Wireless Tools suite for Linux
 * Stephen Hemminger and the team behind iproute2
 * Dave Gamble for cJSON
@@ -296,4 +293,3 @@ This project is licensed under the MIT License. Do whatever you want with it. Se
 * The fine folks at OpenWeatherMap
 * David Brailsford
 * [Paul Whipp](paulwhippconsulting.com)
-* What is this, an award show?
