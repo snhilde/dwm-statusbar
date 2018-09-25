@@ -1718,7 +1718,7 @@ get_vol_range(void)
 static int
 get_brightness_max(char *brightness_file)
 {
-	if (!DISPLAY_KBD && !strcmp(brightness_file, KBD_BRIGHTNESS_FILE))
+	if (DISPLAY_KBD && !strcmp(brightness_file, KBD_BRIGHTNESS_FILE))
 		return 0;
 	
 	char file_str[STRING_LENGTH];

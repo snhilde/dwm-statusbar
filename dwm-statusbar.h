@@ -45,9 +45,6 @@
 #define RED_TEXT					color8
 #define COLOR_HEADING				COLOR_ACTIVE
 
-#define WIFI_INTERFACE				"wlp4s0"	// TODO get from /proc/net/arp?
-#define DISPLAY_KBD					true
-
 #define TODO_FILE					"/home/user/.TODO"
 #define STATUSBAR_LOG_FILE			"/home/user/.logs/dwm-statusbar.log"
 #define DWM_LOG_FILE				"/home/user/.logs/dwm.log"
@@ -69,6 +66,13 @@
 #define KBD_BRIGHTNESS_FILE			"/sys/class/leds/smc::kbd_backlight/brightness"
 #define BATT_STATUS_FILE			"/sys/class/power_supply/BAT0/status"
 #define BATT_CAPACITY_FILE			"/sys/class/power_supply/BAT0/capacity"
+
+#define WIFI_INTERFACE				"wlp4s0"	// TODO get from /proc/net/arp?
+#ifdef KBD_BRIGHTNESS_FILE
+	#define DISPLAY_KBD				true
+#else
+	#define DISPLAY_KBD				false
+#endif
 
 #define STATUSBAR					0
 #define TOPBAR						1
