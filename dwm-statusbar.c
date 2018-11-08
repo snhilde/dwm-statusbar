@@ -1435,6 +1435,7 @@ get_battery(void)
 	int status; // -1 = discharging, 0 = full, 1 = charging
 	int capacity;
 	static int old_status, old_capacity;
+	static bool first_run = true;
 	
 	link = get_string_link(BATTERY);
 	if (!link)
@@ -1448,8 +1449,9 @@ get_battery(void)
 		ERR(BATTERY, "error closing battery status file in get_battery()", -1);
 
 	if (!strcmp(status_string, "Full") || !strcmp(status_string, "Unknown")) {
-		if (old_status && init_done) {
+		if (old_status || (init_done && first_run)) {
 			old_status = 0;
+			first_run = false;
 			
 			snprintf(link->info, STRING_LENGTH, "%c full %c ",
 					COLOR1, COLOR_NORMAL);
@@ -1457,8 +1459,9 @@ get_battery(void)
 			SET_FLAG(updated, BATTERY);
 			CHECK_LENGTH(link);
 			
-			return 0;
 		}
+		
+		return 0;
 	}
 	
 	if (!strcmp(status_string, "Discharging"))
