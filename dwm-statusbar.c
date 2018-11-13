@@ -132,7 +132,8 @@ handle_strings(Display *dpy, Window root)
 	struct string_link *link;
 	
 	if (update_all || GET_FLAG(updated, TODO))
-		handle_TODO();
+		if (handle_TODO())
+			ERR(TODO, "error handling TODO in handle_strings()", -1);
 	
 	start = statusbar;
 	link = string_list;
