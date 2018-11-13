@@ -1753,7 +1753,7 @@ get_brightness_max(char *brightness_file)
 	return max;
 }
 
-static int
+void
 free_list(struct file_link *list)
 {
 	struct file_link *next;
@@ -1764,8 +1764,6 @@ free_list(struct file_link *list)
 		free(list);
 		list = next;
 	}
-	
-	return 0;
 }
 
 static struct file_link *
