@@ -728,7 +728,7 @@ format_wifi_status(char *ssid_string, char *info, char color)
 	return 0;
 }
 
-static int
+void
 print_ssid(uint8_t len, uint8_t *data, char *ssid_string)
 {
 	// stolen from iw
@@ -744,8 +744,6 @@ print_ssid(uint8_t len, uint8_t *data, char *ssid_string)
 			snprintf(tmp_str, STRING_LENGTH, "\\x%.2x", data[i]);
 		strncat(ssid_string, tmp_str, STRING_LENGTH - strlen(ssid_string));
 	}
-	
-	return 0;
 }
 
 static int
