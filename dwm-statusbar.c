@@ -1007,7 +1007,7 @@ get_network(void)
 	return 0;
 }
 
-static int
+void
 process_stat(struct disk_usage_struct *dus)
 {
 	int unit_int = 0;
@@ -1031,8 +1031,6 @@ process_stat(struct disk_usage_struct *dus)
 	}
 	dus->bytes_total = bytes_total;
 	dus->unit_total = get_unit(unit_int);
-	
-	return 0;
 }
 
 static int
