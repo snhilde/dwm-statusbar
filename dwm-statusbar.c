@@ -701,7 +701,7 @@ get_portfolio(void)
 	return 0;
 }
 
-static int
+void
 free_wifi_list(struct nlmsg_list *list)
 {
 	struct nlmsg_list *next;
@@ -711,8 +711,6 @@ free_wifi_list(struct nlmsg_list *list)
 		free(list);
 		list = next;
 	}
-	
-	return 0;
 }
 
 static int
