@@ -1392,7 +1392,7 @@ get_volume(void)
 	snd_mixer_handle_events(handle);	// reloads control
 	if (snd_mixer_selem_get_playback_switch(snd_elem, SND_MIXER_SCHN_MONO, &swch))
 		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1);
-	if (!swch && old_swch != swch || !init_done) {
+	if ((!swch && old_swch != swch) || !init_done) {
 		old_swch = swch;
 		
 		snprintf(link->info, STRING_LENGTH, "%cmute%c ",
