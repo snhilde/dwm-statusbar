@@ -463,7 +463,7 @@ get_weather(void)
 	return 0;
 }
 
-static int
+void
 parse_error_code(int code, char *output, int len)
 {
 	switch (code) {
@@ -484,8 +484,6 @@ parse_error_code(int code, char *output, int len)
 		default:
 			strncpy(output, "err in backup", len - 1);
 	}
-	
-	return 0;
 }
 
 static int
