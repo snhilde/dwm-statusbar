@@ -923,7 +923,7 @@ get_unit(int unit)
 	}
 }
 
-static int
+void
 format_bytes(long *bytes, int *step)
 {
 	long bytes_n = *bytes;
@@ -936,8 +936,6 @@ format_bytes(long *bytes, int *step)
 	
 	*bytes = bytes_n;
 	*step = step_n;
-	
-	return 0;
 }
 
 static int
