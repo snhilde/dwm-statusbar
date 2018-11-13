@@ -6,7 +6,7 @@ get_string_link(int id)
 {
 	struct string_link *link = string_list;
 	
-	while (link != NULL) {
+	while (link) {
 		if (link->id == id)
 			break;
 		link = link->next;
