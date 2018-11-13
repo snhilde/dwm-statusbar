@@ -2289,7 +2289,7 @@ init(Display *dpy, Window root)
 	
 	snprintf(error_string, 10, "%c Error%c ", COLOR_ERROR, COLOR_NORMAL);
 	if (populate_tm_struct())
-		exit(1)
+		exit(1);
 	if (populate_string_list() < 0)
 		exit(1);
 	err += make_singletons();
