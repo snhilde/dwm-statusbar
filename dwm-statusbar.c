@@ -34,7 +34,7 @@ add_padding(char *ptr)
 	return pad;
 }
 
-static int
+void
 format_top_bar(char **ptr)
 {
 	if (!(GET_FLAG(err, BOTTOMBAR))) {
@@ -45,8 +45,6 @@ format_top_bar(char **ptr)
 	}
 	**ptr = ';';
 	(*ptr)++;
-
-	return 0;
 }
 
 static int
