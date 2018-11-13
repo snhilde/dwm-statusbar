@@ -387,7 +387,7 @@ parse_weather_json(char *raw_json, char *info)
 }
 
 size_t
-curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
+curl_callback(char *json, size_t size, size_t nmemb, void *userdata)
 {
 	const size_t received_size = size * nmemb;
 	struct data_struct *tmp;
@@ -398,7 +398,7 @@ curl_callback(char *weather_json, size_t size, size_t nmemb, void *userdata)
 	if (!tmp->data)
 		return -1;
 	
-	memcpy(&(tmp->data[tmp->size]), weather_json, received_size);
+	memcpy(&(tmp->data[tmp->size]), json, received_size);
 	tmp->size += received_size;
 	tmp->data[tmp->size] = '\0';
 	
