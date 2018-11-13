@@ -444,10 +444,10 @@ get_weather(void)
 			ERR(WEATHER, "error with curl_easy_setops() in get_weather()", -1);
 		if (curl_easy_perform(sb_curl) == CURLE_OK) {
 			if (!i) {
-				if (parse_weather_json(json_structs[i].data, link->info) < 0)
+				if (parse_weather_json(json_structs[i].data, link->info))
 					ERR(WEATHER, "error parsing weather json in get_weather()", -1);
 			} else {
-				if (parse_forecast_json(json_structs[i].data, link->info) < 0)
+				if (parse_forecast_json(json_structs[i].data, link->info))
 					ERR(WEATHER, "error parsing forecast json in get_weather()", -1);
 			}
 			need_to_get_weather = false;
@@ -1047,7 +1047,7 @@ get_disk(void)
 	if (!link)
 		ERR(DISK, "error getting string link in get_disk()", -1);
 	
-	if (statvfs("/", &root_fs.fs_stat) < 0)
+	if (statvfs("/", &root_fs.fs_stat))
 		ERR(DISK, "error getting filesystem stats in get_disk()", -1);
 	
 	process_stat(&root_fs);
@@ -1249,7 +1249,7 @@ get_cpu_temp(void)
 	if (!link)
 		ERR(CPU_TEMP, "error getting string link in get_cpu_temp()", -1);
 	
-	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count) < 0)
+	if (traverse_list(therm_list, CPU_TEMP_DIR, &total, &count))
 		ERR(CPU_TEMP, "error traversing list in get_cpu_temp()", -1);
 	
 	temp = total / count;
@@ -1286,7 +1286,7 @@ get_fan(void)
 	if (!link)
 		ERR(FAN, "error getting string link in get_fan()", -1);
 	
-	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count) < 0)
+	if (traverse_list(fan_list, FAN_SPEED_DIR, &rpm, &count))
 		ERR(FAN, "error traversing list in get_fan()", -1);
 			
 	rpm /= count;
@@ -1535,7 +1535,7 @@ get_account_number(void)
 	if (curl_easy_perform(sb_curl) != CURLE_OK) {
 		ERR(PORTFOLIO, "error with curl_easy_perform() in get_account_number()", -1);
 	} else
-		if (parse_account_number_json(account_number_struct.data) < 0)
+		if (parse_account_number_json(account_number_struct.data))
 			ERR(PORTFOLIO, "error parsing account number json in get_account_number()", -1);
 	
 	free(account_number_struct.data);
@@ -1584,7 +1584,7 @@ get_token(void)
 	if (curl_easy_perform(sb_curl) != CURLE_OK) {
 		ERR(PORTFOLIO, "error with curl_easy_perform() in get_token()", -1);
 	} else {
-		if (parse_token_json(token_struct.data) < 0)
+		if (parse_token_json(token_struct.data))
 			ERR(PORTFOLIO, "error with parse_token_json() in get_token()", -1);
 	}
 		
@@ -1599,9 +1599,9 @@ init_portfolio(void)
 	if (!sb_curl)
 		return -1;
 	
-	if (get_token() < 0)
+	if (get_token())
 		ERR(PORTFOLIO, "error getting token in init_portfolio()", -1);
-	if (get_account_number() < 0)
+	if (get_account_number())
 		ERR(PORTFOLIO, "error getting account number in init_portfolio()", -1);
 	snprintf(portfolio_url, STRING_LENGTH,
 			"https://api.robinhood.com/accounts/%s/portfolio/", account_number);
@@ -1746,9 +1746,9 @@ get_brightness_max(char *brightness_file)
 		ERR(BRIGHTNESS, "error opening brightness file in get_brightness_max", -1);
 	fscanf(fd, "%d", &max);
 	
-	if (fclose(fd) < 0)
+	if (fclose(fd))
 		ERR(BRIGHTNESS, "error closing brightness file in get_brightness_max", -1);
-	if (closedir(dir) < 0)
+	if (closedir(dir))
 		ERR(BRIGHTNESS, "error closing brightness directory in get_brightness_max", -1);
 	return max;
 }
@@ -1816,7 +1816,7 @@ populate_list(struct file_link *list, char *path, char *base, char *match)
 	if (!count)
 		ERR(63, "error finding any files in populate_list()", NULL);
 	
-	if (closedir(dir) < 0)
+	if (closedir(dir))
 		ERR(63, "error closing directory in populate_list()", NULL);
 	return list;
 }
@@ -1831,7 +1831,7 @@ get_gen_consts(char *path, char *base, char *match)
 	if (!list)
 		ERR(63, "error populating list in get_gen_consts()", -1);
 				
-	if (traverse_list(list, path, &total, &count) < 0)
+	if (traverse_list(list, path, &total, &count))
 		ERR(63, "error traversing list in get_gen_consts()", -1);
 	
 	free_list(list);
@@ -1853,7 +1853,7 @@ get_cpu_ratio(void)
 	while (fgets(line, 256, fd) && strncmp(line, "cpu cores", 9));
 	if (!line)
 		ERR(CPU_USAGE, "error reading /proc/cpuinfo in get_cpu_ratio()", -1);
-	if (fclose(fd) < 0)
+	if (fclose(fd))
 		ERR(CPU_USAGE, "error closing /proc/cpuinfo in get_cpu_ratio()", -1);
 			
 	token = strtok(line, ":");
@@ -1884,7 +1884,7 @@ get_font(char **ptr)
 	while (fgets(line, STRING_LENGTH, fd) && strncmp(line, "static const char font", 22));
 	if (!line)
 		ERR(BOTTOMBAR, "no font found in dwm config file in get_font()", -1);
-	if (fclose(fd) < 0)
+	if (fclose(fd))
 		ERR(BOTTOMBAR, "error closing dwm config file in get_font()", -1);
 			
 	token = strtok(line, "=");
@@ -1922,7 +1922,7 @@ get_bar_max_len(Display *dpy)
 	XRectangle rect;
 	
 	width_d = DisplayWidth(dpy, DefaultScreen(dpy));
-	if (get_font(&fontname) < 0)
+	if (get_font(&fontname))
 		ERR(BOTTOMBAR, "error getting font in get_bar_max_len()", -1);
 	fontset = XCreateFontSet(dpy, fontname, &miss_list, &count, &def);
 	if (fontset) {
@@ -1943,7 +1943,7 @@ get_bar_max_len(Display *dpy)
 static int
 get_block_size(void)
 {
-	if (statvfs("/", &root_fs.fs_stat) < 0)
+	if (statvfs("/", &root_fs.fs_stat))
 		ERR(DISK, "error getting root file stats in get_block_size()", -1);
 			
 	return root_fs.fs_stat.f_bsize;
@@ -2288,7 +2288,7 @@ init(Display *dpy, Window root)
 	snprintf(error_string, 10, "%c Error%c ", COLOR_ERROR, COLOR_NORMAL);
 	if (populate_tm_struct())
 		exit(1);
-	if (populate_string_list() < 0)
+	if (populate_string_list())
 		exit(1);
 	err += make_singletons();
 	if (!check_conn())
@@ -2345,9 +2345,9 @@ main(void)
 	screen = DefaultScreen(dpy);
 	root = RootWindow(dpy, screen);
 	
-	if (init(dpy, root) < 0)
+	if (init(dpy, root))
 		SIMPLE_ERR(63, "error with initialization");
-	if (loop(dpy, root) < 0)
+	if (loop(dpy, root))
 		ERR(63, "loop broken", 1);
 	
 	strncpy(statusbar, "Loop broken. Please check log for details.", TOTAL_LENGTH);
