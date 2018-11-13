@@ -232,7 +232,7 @@ get_TODO(void)
 		// line[strlen(line) - 1] = '\0'; // remove weird characters at end
 		line = calloc(1, STRING_LENGTH);
 		fgets(line, STRING_LENGTH, fd);
-		*link->info = COLOR_NORMAL;
+		sprintf(link->info, "%c\0", COLOR_NORMAL);
 		for (i = 0, mover = line; i < 3; i++, fgets(line, STRING_LENGTH, fd), mover = line) {
 			switch (*mover) {
 				case '\0': break;
