@@ -1647,7 +1647,7 @@ loop(Display *dpy, Window root)
 {
 	int err = 0;
 	
-	while (1) {
+	while (!err) {
 		err += populate_tm_struct();
 		if (!internet_connected)
 			check_conn();
