@@ -1394,13 +1394,14 @@ get_volume(void)
 		ERR(VOLUME, "error with snd_mixer_selem_get_playback_switch() in get_volume()", -1);
 	if ((!swch && old_swch != swch) || !init_done) {
 		old_swch = swch;
+		old_perc = 0;
 		
 		snprintf(link->info, STRING_LENGTH, "%cmute%c ",
 				COLOR_NORMAL, COLOR_NORMAL);
 		
 		SET_FLAG(updated, VOLUME);
 		CHECK_LENGTH(link);
-	} else {
+	} else if (swch) {
 		if (snd_mixer_selem_get_playback_volume(snd_elem, SND_MIXER_SCHN_MONO, &pvol))
 			ERR(VOLUME, "error with snd_mixer_selem_get_playback_volume() in get_volume()", -1);
 				
@@ -1410,6 +1411,7 @@ get_volume(void)
 		
 		if (old_perc != volperc || !init_done) {
 			old_perc = volperc;
+			old_swch = 1;
 		
 			snprintf(link->info, STRING_LENGTH, "%c%3d%%%c ",
 					COLOR_NORMAL, volperc, COLOR_NORMAL);
