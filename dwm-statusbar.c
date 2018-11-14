@@ -2118,26 +2118,17 @@ make_curl_singleton(void)
 static int
 make_singletons(void)
 {
-	int err = 0;
+	if (GET_FLAG(func, WEATHER) || GET_FLAG(func, PORTFOLIO)) 
+		if (make_curl_singleton())
+			SIMPLE_ERR(PORTFOLIO, "error making curl singleton in make_singletons()");
+	if (GET_FLAG(func, WIFI))
+		if (make_wifi_singleton())
+			SIMPLE_ERR(WIFI, "error making wifi singleton in make_singletons()");
+	if (GET_FLAG(func, VOLUME))
+		if (make_vol_singleton()) 
+			SIMPLE_ERR(VOLUME, "error making volume singleton in make_singletons()");
 	
-	if (GET_FLAG(func, WEATHER) || GET_FLAG(func, PORTFOLIO)) {
-		if ((err += make_curl_singleton()) < 0) {
-			SET_FLAG(err, WEATHER);
-			ERR(PORTFOLIO, "error making curl singleton in make_singletons()", -1);
-		}
-	}
-	if (GET_FLAG(func, WIFI)) {
-		if ((err += make_wifi_singleton()) < 0) {
-			ERR(WIFI, "error making wifi singleton in make_singletons()", -1);
-		}
-	}
-	if (GET_FLAG(func, VOLUME)) {
-		if ((err += make_vol_singleton()) < 0) {
-			ERR(VOLUME, "error making volume singleton in make_singletons()", -1);
-		}
-	}
-	
-	return err;
+	return 0;
 }
 
 static struct string_link *
