@@ -2030,6 +2030,7 @@ populate_lists(void)
 {
 	int err;
 	
+	err = 0;
 	if (GET_FLAG(func, CPU_TEMP) && !(therm_list = populate_list(therm_list, CPU_TEMP_DIR, "temp", "input"))) {
 		err = -1;
 		SIMPLE_ERR(CPU_TEMP, "error creating list of CPU temperature sensors in populate_lists()");
