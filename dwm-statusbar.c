@@ -2115,7 +2115,7 @@ make_curl_singleton(void)
 	return 0;
 }
 
-static int
+void
 make_singletons(void)
 {
 	if (GET_FLAG(func, WEATHER) || GET_FLAG(func, PORTFOLIO)) 
@@ -2127,8 +2127,6 @@ make_singletons(void)
 	if (GET_FLAG(func, VOLUME))
 		if (make_vol_singleton()) 
 			SIMPLE_ERR(VOLUME, "error making volume singleton in make_singletons()");
-	
-	return 0;
 }
 
 static struct string_link *
@@ -2281,7 +2279,7 @@ init(Display *dpy, Window root)
 		exit(1);
 	if (populate_string_list())
 		exit(1);
-	err += make_singletons();
+	make_singletons();
 	if (!check_conn())
 		internet_connected = true;
 	err += populate_lists();
