@@ -851,31 +851,38 @@ get_wifi(void)
 	if (ifi_flag == 0 && op_state == 2) {
 		strncpy(ssid_string, "Wireless Device Set Down", STRING_LENGTH - 1);
 		wifi_connected = false;
-	} else if (ifi_flag && op_state == 0) {
-		strncpy(ssid_string, "Wireless State Unknown", STRING_LENGTH - 1);
-		wifi_connected = false;
-	} else if (ifi_flag && op_state == 2) {
-		strncpy(ssid_string, "No Connection Initiated", STRING_LENGTH - 1);
-		wifi_connected = false;
-	} else if (ifi_flag && op_state == 5) {
-		strncpy(ssid_string, "Not Connected", STRING_LENGTH - 1);
-		wifi_connected = false;
-	} else if (ifi_flag && op_state == 6) {
-		if (wifi_connected)
-			return 0;
-	
-		genlmsg_put(sb_msg, 0, 0, sb_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
-		if (nla_put(sb_msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &const_devidx) < 0)
-			ERR(WIFI, "error with nla_put() in get_wifi()", -1);
-		nl_send_auto_complete(sb_socket, sb_msg);
-		if (nl_cb_set(sb_cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
-			ERR(WIFI, "error with nla_cb_set() in get_wifi()", -1);
-		if (nl_recvmsgs(sb_socket, sb_cb) < 0)
-			strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
-		else
-			color = COLOR1;
+	} else if (ifi_flag) {
+		switch (op_state) {
+			case 0:
+				strncpy(ssid_string, "Wireless State Unknown", STRING_LENGTH - 1);
+				wifi_connected = false;
+				break;
+			case 2:
+				strncpy(ssid_string, "No Connection Initiated", STRING_LENGTH - 1);
+				wifi_connected = false;
+				break;
+			case 5:
+				strncpy(ssid_string, "Not Connected", STRING_LENGTH - 1);
+				wifi_connected = false;
+				break;
+			case 6:
+				if (wifi_connected)
+					return 0;
+			
+				genlmsg_put(sb_msg, 0, 0, sb_id, 0, 0, NL80211_CMD_GET_INTERFACE, 0);
+				if (nla_put(sb_msg, NL80211_ATTR_IFINDEX, sizeof(uint32_t), &const_devidx) < 0)
+					ERR(WIFI, "error with nla_put() in get_wifi()", -1);
+				nl_send_auto_complete(sb_socket, sb_msg);
+				if (nl_cb_set(sb_cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
+					ERR(WIFI, "error with nla_cb_set() in get_wifi()", -1);
+				if (nl_recvmsgs(sb_socket, sb_cb) < 0)
+					strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
+				else
+					color = COLOR1;
 
-		wifi_connected = true;
+				wifi_connected = true;
+				break;
+		}
 	} else
 		ERR(WIFI, "error finding wifi status in get_wifi()", -1);
 			
