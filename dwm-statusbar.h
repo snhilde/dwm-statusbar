@@ -103,7 +103,7 @@
 	flag ## _flags |= 1UL << id
 
 #define REMOVE_FLAG(flag, id) \
-	GET_FLAG(flag, id) ? flag ## _flags ^= 1 << id : 0
+	flag ## _flags &= !(1UL << id)
 
 #define GET_FLAG(flag, id) \
 	flag ## _flags & 1UL << id
