@@ -844,7 +844,7 @@ get_wifi(void)
 	op_state = ip_check(1);
 	if (op_state == -1) return -1;
 	
-	ssid_string = calloc(1, STRING_LENGTH);
+	ssid_string = calloc(STRING_LENGTH, sizeof(*ssid_string));
 	if (!ssid_string)
 		ERR(WIFI, "error allocating memory for ssid_string in get_wifi()", -1);
 	
