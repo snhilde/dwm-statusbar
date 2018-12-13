@@ -882,7 +882,7 @@ get_wifi(void)
 						color = COLOR1;
 						wifi_connected = true;
 					} else {
-						strncpy(ssid_string, "Finding Connection...", STRING_LENGTH - 1);
+						strncpy(ssid_string, "Making Connection...", STRING_LENGTH - 1);
 						wifi_connected = false;
 					}
 				}
