@@ -875,13 +875,17 @@ get_wifi(void)
 				nl_send_auto_complete(sb_socket, sb_msg);
 				if (nl_cb_set(sb_cb, NL_CB_VALID, NL_CB_CUSTOM, wifi_callback, ssid_string) < 0)
 					ERR(WIFI, "error with nla_cb_set() in get_wifi()", -1);
-				if (nl_recvmsgs(sb_socket, sb_cb) < 0)
+				if (nl_recvmsgs(sb_socket, sb_cb) < 0) {
 					strncpy(ssid_string, "No Wireless Connection", STRING_LENGTH - 1);
-				else
-					color = COLOR1;
-
-				wifi_connected = true;
-				break;
+				} else {
+					if (*ssid_string) {
+						color = COLOR1;
+						wifi_connected = true;
+					} else {
+						strncpy(ssid_string, "Finding Connection...", STRING_LENGTH - 1);
+						wifi_connected = false;
+					}
+				}
 		}
 	} else
 		ERR(WIFI, "error finding wifi status in get_wifi()", -1);
