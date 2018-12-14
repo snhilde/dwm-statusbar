@@ -533,8 +533,6 @@ get_backup(void)
 		FILE *fd;
 		char line[32], status[16], color = COLOR_ERROR;
 		int value, len;
-		time_t curr_time;
-		time_t t_diff;
 		
 		link = get_string_link(BACKUP);
 		if (!link)
