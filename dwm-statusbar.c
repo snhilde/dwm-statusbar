@@ -59,7 +59,7 @@ add_padding(char *ptr)
 	return pad;
 }
 
-void
+static void
 format_top_bar(char **ptr)
 {
 	if (!(GET_FLAG(err, BOTTOMBAR))) {
@@ -398,7 +398,7 @@ parse_weather_json(char *raw_json, char *info)
 	return 0;
 }
 
-size_t
+static size_t
 curl_callback(char *json, size_t size, size_t nmemb, void *userdata)
 {
 	const size_t received_size = size * nmemb;
@@ -475,7 +475,7 @@ get_weather(void)
 	return 0;
 }
 
-void
+static void
 parse_error_code(int code, char *output, int len)
 {
 	switch (code) {
@@ -723,7 +723,7 @@ get_portfolio(void)
 	return 0;
 }
 
-void
+static void
 free_wifi_list(struct nlmsg_list *list)
 {
 	struct nlmsg_list *next;
@@ -750,7 +750,7 @@ format_wifi_status(char *ssid_string, char *info, char color)
 	return 0;
 }
 
-void
+static void
 print_ssid(uint8_t len, uint8_t *data, char *ssid_string)
 {
 	// stolen from iw
@@ -956,7 +956,7 @@ get_unit(int unit)
 	}
 }
 
-void
+static void
 format_bytes(long *bytes, int *step)
 {
 	long bytes_n = *bytes;
@@ -1040,7 +1040,7 @@ get_network(void)
 	return 0;
 }
 
-void
+static void
 process_stat(struct disk_usage_struct *dus)
 {
 	int unit_int = 0;
@@ -1644,7 +1644,7 @@ init_portfolio(void)
 	return 0;
 }
 
-size_t
+static size_t
 discard_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	// same as writing to /dev/null
@@ -1774,7 +1774,7 @@ get_brightness_max(char *brightness_file)
 	return max;
 }
 
-void
+static void
 free_list(struct file_link *list)
 {
 	struct file_link *next;
@@ -2137,7 +2137,7 @@ make_curl_singleton(void)
 	return 0;
 }
 
-void
+static void
 make_singletons(void)
 {
 	if (GET_FLAG(func, WEATHER) || GET_FLAG(func, PORTFOLIO)) 
