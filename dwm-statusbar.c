@@ -524,7 +524,8 @@ get_backup(void)
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
 		ERR(BACKUP, "error getting backup file stats in get_backup()", -1);
 	missed_bool = check_missed(file_stat.st_mtime);
-	if (old_mtime != file_stat.st_mtime) {
+	
+	if (old_mtime != file_stat.st_mtime || missed_bool) {
 		old_mtime = file_stat.st_mtime;
 		backup_occurring = false;
 		
@@ -550,20 +551,16 @@ get_backup(void)
 		if (fclose(fd))
 			ERR(BACKUP, "error closing backup status file in get_backup()", -1);
 				
-		if (isdigit(line[0])) {
+		if (missed_bool) {
+			strncpy(status, "missed", len - 1);
+		} else if (isdigit(line[0])) {
 			sscanf(line, "%d", &value);
 					
 			if (value >= 20 && value <= 26)
 				parse_error_code(value, status, len);
 			else {
-				time(&curr_time);
-				t_diff = curr_time - value;
-				if (t_diff > 86400)
-					strncpy(status, "missed", len - 1);
-				else {
-					strncpy(status, "done", len - 1);
-					color = COLOR1;
-				}
+				strncpy(status, "done", len - 1);
+				color = COLOR1;
 			}
 		} else {
 			line[strlen(line) - 1] = '\0';
