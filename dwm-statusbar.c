@@ -16,6 +16,31 @@ get_string_link(int id)
 }
 
 static int
+get_length(struct string_link *link)
+{
+	if (GET_FLAG(err, link->id))
+		return strlen(link->heading) + 9;
+	else {
+		if (*link->info)
+			return strlen(link->heading) + strlen(link->info);
+		else
+			return 0;
+	}
+}
+
+static int
+populate_tm_struct(void)
+{
+	time_t tval;
+	time(&tval);
+	tm_struct = localtime(&tval);
+	if (!tm_struct)
+		ERR(TIME, "error with localtime() in populate_tm_struct()", -1);
+	
+	return 0;
+}
+
+static int
 add_padding(char *ptr)
 {
 	if (GET_FLAG(err, BOTTOMBAR))
@@ -45,19 +70,6 @@ format_top_bar(char **ptr)
 	}
 	**ptr = ';';
 	(*ptr)++;
-}
-
-static int
-get_length(struct string_link *link)
-{
-	if (GET_FLAG(err, link->id))
-		return strlen(link->heading) + 9;
-	else {
-		if (*link->info)
-			return strlen(link->heading) + strlen(link->info);
-		else
-			return 0;
-	}
 }
 
 static int
@@ -1639,18 +1651,6 @@ check_conn(void)
 		return -1;
 	
 	return curl_easy_perform(sb_curl);
-}
-
-static int
-populate_tm_struct(void)
-{
-	time_t tval;
-	time(&tval);
-	tm_struct = localtime(&tval);
-	if (!tm_struct)
-		ERR(TIME, "error with localtime() in populate_tm_struct()", -1);
-	
-	return 0;
 }
 
 static int
