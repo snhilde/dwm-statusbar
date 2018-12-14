@@ -498,6 +498,19 @@ parse_error_code(int code, char *output, int len)
 	}
 }
 
+static bool
+check_missed(const long file_mtime)
+{
+	struct tm *file_tm;
+	int file_day;
+	
+	file_tm = localtime(&file_mtime);
+	file_day = file_tm->tm_mday;
+	populate_tm_struct();
+	
+	return file_day != tm_struct->tm_mday;
+}
+
 static int
 get_backup(void)
 {
@@ -505,10 +518,12 @@ get_backup(void)
 		return -1;
 	
 	struct stat file_stat;
+	bool missed_bool;
 	static long old_mtime;
 	
 	if (stat(BACKUP_STATUS_FILE, &file_stat) < 0)
 		ERR(BACKUP, "error getting backup file stats in get_backup()", -1);
+	missed_bool = check_missed(file_stat.st_mtime);
 	if (old_mtime != file_stat.st_mtime) {
 		old_mtime = file_stat.st_mtime;
 		backup_occurring = false;
