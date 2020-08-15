@@ -1,3 +1,7 @@
+![Version Badge](https://img.shields.io/badge/Version-2.1-informational)
+![Maintenance Badge](https://img.shields.io/badge/Maintained-no-critical)
+![Class Badge](https://img.shields.io/badge/Status-deprecated-inactive)
+
 # DWM StatusBar
 
 ![bar_left](images/bar_left.png "Left side of bottom bar")
